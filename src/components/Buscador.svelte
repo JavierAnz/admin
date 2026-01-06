@@ -11,6 +11,7 @@
   let loading = false;
   let soloMiSucursal = false;
   let timer: any;
+  let ordenamiento = "ninguno"; // "ninguno", "precio-asc", "precio-desc", "nombre-asc", "nombre-desc"
 
   let listaCarrito: any[] = [];
   let mostrarResumen = false;
@@ -23,6 +24,25 @@
     cargarCarrito();
     window.addEventListener("carrito-actualizado", cargarCarrito);
   });
+
+  $: productosOrdenados = (() => {
+    if (ordenamiento === "ninguno") return productos;
+
+    const copia = [...productos];
+
+    switch (ordenamiento) {
+      case "precio-asc":
+        return copia.sort((a, b) => a.precioa - b.precioa);
+      case "precio-desc":
+        return copia.sort((a, b) => b.precioa - a.precioa);
+      case "nombre-asc":
+        return copia.sort((a, b) => a.nombre.localeCompare(b.nombre));
+      case "nombre-desc":
+        return copia.sort((a, b) => b.nombre.localeCompare(a.nombre));
+      default:
+        return copia;
+    }
+  })();
 
   async function realizarBusqueda() {
     if (busqueda.trim().length < 2) {
@@ -122,10 +142,70 @@
         </div>
       {/if}
     </div>
+
+    <!-- Controles de Ordenamiento -->
+    {#if productos.length > 0}
+      <div class="mt-3 flex items-center gap-2 flex-wrap">
+        <span
+          class="text-[10px] font-black text-slate-400 uppercase tracking-wider"
+          >Ordenar:</span
+        >
+        <button
+          on:click={() => (ordenamiento = "ninguno")}
+          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all {ordenamiento ===
+          'ninguno'
+            ? 'bg-[#3d3b3e] text-[#ffd312]'
+            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
+          type="button"
+        >
+          Predeterminado
+        </button>
+        <button
+          on:click={() => (ordenamiento = "precio-asc")}
+          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all {ordenamiento ===
+          'precio-asc'
+            ? 'bg-[#3d3b3e] text-[#ffd312]'
+            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
+          type="button"
+        >
+          Precio ↑
+        </button>
+        <button
+          on:click={() => (ordenamiento = "precio-desc")}
+          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all {ordenamiento ===
+          'precio-desc'
+            ? 'bg-[#3d3b3e] text-[#ffd312]'
+            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
+          type="button"
+        >
+          Precio ↓
+        </button>
+        <button
+          on:click={() => (ordenamiento = "nombre-asc")}
+          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all {ordenamiento ===
+          'nombre-asc'
+            ? 'bg-[#3d3b3e] text-[#ffd312]'
+            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
+          type="button"
+        >
+          A-Z
+        </button>
+        <button
+          on:click={() => (ordenamiento = "nombre-desc")}
+          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all {ordenamiento ===
+          'nombre-desc'
+            ? 'bg-[#3d3b3e] text-[#ffd312]'
+            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
+          type="button"
+        >
+          Z-A
+        </button>
+      </div>
+    {/if}
   </div>
 
   <div class="grid grid-cols-1 gap-3">
-    {#each productos as item}
+    {#each productosOrdenados as item}
       <button
         type="button"
         class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:border-[#ffd312] transition-all cursor-pointer active:scale-95 text-left w-full"

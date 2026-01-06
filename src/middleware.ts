@@ -9,7 +9,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (esPrivado && !sesion) {
         return redirect("/login?error=no-auth");
     }
-
+    if (url.pathname === "/" && !sesion) {
+        return redirect("/login");
+    }
     if (url.pathname === "/login" && sesion) {
         return redirect("/inventario");
     }
