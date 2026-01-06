@@ -1,0 +1,44 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Buscador from "../components/Buscador.svelte";
+import sql from "mssql";
+
+const agenciaId = Astro.cookies.get("agencia_id")?.value;
+let nombreAgencia = "";
+
+if (agenciaId) {
+  try {
+    const config = {
+      user: import.meta.env.sqluser,
+      password: import.meta.env.sqlpassword,
+      server: import.meta.env.sqlserver,
+      database: import.meta.env.sqldatabase,
+      options: {
+        instanceName: import.meta.env.instanceName,
+        encrypt: false,
+        trustServerCertificate: true,
+      },
+    };
+    // @ts-ignore
+    let pool = await sql.connect(config);
+    const result = await pool
+      .request()
+      .input("id", sql.Int, agenciaId)
+      .query("SELECT Nom_Agen FROM agencias WHERE cod_agen = @id");
+
+    if (result.recordset.length > 0) {
+      nombreAgencia = result.recordset[0].Nom_Agen;
+    }
+  } catch (e) {
+    console.error("Error fetching agency name", e);
+  }
+}
+---
+
+<Layout title="Inventario | OFIT">
+  <Buscador
+    client:load
+    idAgenciaUsuario={agenciaId}
+    nombreAgencia={nombreAgencia}
+  />
+</Layout>
