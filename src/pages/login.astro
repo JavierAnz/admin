@@ -320,7 +320,6 @@ const loginSuccess = url.searchParams.get("success");
   </main>
 
   <script>
-    // Password toggle functionality
     const togglePassword = document.getElementById("togglePassword");
     const passwordInput = document.getElementById("pass") as HTMLInputElement;
 
@@ -329,7 +328,6 @@ const loginSuccess = url.searchParams.get("success");
         const type = passwordInput.type === "password" ? "text" : "password";
         passwordInput.type = type;
 
-        // Update button aria-label
         togglePassword.setAttribute(
           "aria-label",
           type === "password" ? "Mostrar contraseña" : "Ocultar contraseña",
@@ -337,7 +335,6 @@ const loginSuccess = url.searchParams.get("success");
       });
     }
 
-    // Form submission loading state
     const loginForm = document.getElementById("loginForm") as HTMLFormElement;
     const submitBtn = document.getElementById("submitBtn") as HTMLButtonElement;
     const btnText = document.getElementById("btnText");
@@ -351,7 +348,6 @@ const loginSuccess = url.searchParams.get("success");
       });
     }
 
-    // Auto-hide success/error messages after 5 seconds
     const alerts = document.querySelectorAll('[role="alert"]');
     alerts.forEach((alert) => {
       setTimeout(() => {

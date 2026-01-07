@@ -6,6 +6,11 @@
   export let nombreAgencia = "";
   $: ubicacion = idAgenciaUsuario;
 
+  const GTQ = new Intl.NumberFormat("es-GT", {
+    style: "currency",
+    currency: "GTQ",
+  });
+
   let busqueda = "";
   let productos: any[] = [];
   let loading = false;
@@ -240,7 +245,7 @@
         </div>
         <div class="text-right">
           <div class="text-sm font-black text-slate-900 leading-none">
-            Q{item.precioa.toFixed(2)}
+            {GTQ.format(item.precioa.toFixed(2))}
           </div>
           <div
             class="text-[10px] font-black mt-1 {item.existencia > 0
@@ -305,6 +310,20 @@
                 >
               </div>
             {/each}
+
+            <div class="flex justify-between items-center gap-2">
+              <span class="text-[11px] font-bold">Total:</span>
+              <span class="text-[11px] font-bold text-slate-700">
+                {GTQ.format(
+                  listaCarrito
+                    .reduce(
+                      (total, item) => total + item.precio * item.cantidad,
+                      0,
+                    )
+                    .toFixed(2),
+                )}
+              </span>
+            </div>
           </div>
           <div class="p-4">
             <button

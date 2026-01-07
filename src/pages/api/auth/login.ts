@@ -15,7 +15,6 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
         const pool = await getDbConnection();
         const hashedPass = md5(passInput);
 
-        // Usamos los nombres exactos de tu tabla: NICK y PASS
         const result = await pool.request()
             .input('nick', sql.VarChar, nickInput)
             .input('pass', sql.VarChar, hashedPass)
@@ -33,7 +32,7 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
                 path: "/",
                 httpOnly: true,
                 secure: import.meta.env.PROD,
-                maxAge: 60 * 60 * 12, // 12 horas
+                maxAge: 60 * 60 * 12,
                 sameSite: "strict"
             });
 
