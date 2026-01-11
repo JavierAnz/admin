@@ -142,22 +142,32 @@ const loginSuccess = url.searchParams.get("success");
   </main>
 
   <script>
+    interface Agencia {
+      Cod_Agen: number | string;
+      Nom_Agen: string;
+    }
+
     fetch("/api/agencias")
       .then((r) => r.json())
-      .then((data) => {
+      .then((data: Agencia[]) => {
         const select = document.getElementById("id_agencia_vendedor");
-        select.innerHTML =
-          '<option value="">Seleccione su ubicación...</option>';
-        data.forEach((a) => {
-          const opt = document.createElement("option");
-          opt.value = a.Cod_Agen;
-          opt.textContent = a.Nom_Agen.trim();
-          select.appendChild(opt);
-        });
+        if (select) {
+          select.innerHTML =
+            '<option value="">Seleccione su ubicación...</option>';
+          data.forEach((a) => {
+            const opt = document.createElement("option");
+            opt.value = String(a.Cod_Agen);
+            opt.textContent = a.Nom_Agen.trim();
+            select.appendChild(opt);
+          });
+        }
       })
       .catch(() => {
         const select = document.getElementById("id_agencia_vendedor");
-        select.innerHTML = '<option value="">Error cargando agencias</option>';
+        if (select) {
+          select.innerHTML =
+            '<option value="">Error cargando agencias</option>';
+        }
       });
   </script>
 </Layout>
