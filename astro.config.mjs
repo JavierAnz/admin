@@ -19,7 +19,7 @@ export default defineConfig({
   },
 
   adapter: node({
-    mode: 'server'
+    mode: 'standalone'
   }),
 
   integrations: [svelte()]
