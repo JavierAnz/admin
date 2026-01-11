@@ -7,47 +7,85 @@ export const GET: APIRoute = async ({ url }) => {
     const agencia = url.searchParams.get('agencia') || '';
     const soloLocal = url.searchParams.get('soloLocal') === 'true';
 
-    // Dividimos la búsqueda en palabras para que no importe el orden
     const palabras = queryRaw.trim().split(/\s+/).filter(p => p.length > 0);
 
-    try {
-        let pool = await getDbConnection();
-        let request = pool.request();
+    // Si no hay búsqueda, retornar vacío
+    if (palabras.length === 0) {
+        return new Response(JSON.stringify([]), { status: 200 });
+    }
 
-        // Si es soloLocal y tenemos agencia, filtramos por la sucursal.
-        // EVITAR JOIN si no hay agencia para prevenir duplicados masivos.
+    try {
+        const pool = await getDbConnection();
+        const request = pool.request();
         const usarFiltroSucursal = soloLocal && agencia && parseInt(agencia) > 0;
 
-        let baseQuery = `
-            SELECT DISTINCT TOP 50 
-                v.Codigo as id, 
-                v.Nombre as nombre, 
-                ${usarFiltroSucursal ? 'r.existencia' : 'v.Total'} as existencia, 
-                v.Marca as marca, 
-                v.Modelo as modelo,
-                v.[Precio P] as preciop, 
-                v.[Precio A] as precioa
-            FROM dbo.VW_PRODUCTOS_LISTADO_WEB v
-            ${usarFiltroSucursal ? 'INNER JOIN rel_productos_agencias r ON v.Codigo = r.cod_prod' : ''}
-            WHERE 1=1
-        `;
-
-        palabras.forEach((palabra, index) => {
+        // Construir condiciones de búsqueda dinámicamente
+        const condicionesBusqueda = palabras.map((palabra, index) => {
             const param = `p${index}`;
             request.input(param, sql.VarChar, `%${palabra}%`);
-            // NOTA IMPORTANTE: Los paréntesis adicionales son CRÍTICOS para que el AND (del filtro de agencia) aplique a todo.
-            // Ahora: AND ( (...) OR ... ) -> Todo el bloque debe cumplir, y luego el AND de agencia también.
-            baseQuery += ` AND ((v.Nombre LIKE @${param} OR v.Codigo LIKE @${param} OR v.Marca LIKE @${param} or v.modelo LIKE @${param}) OR v.Barras = @${param}) `;
-        });
+            return `(v.Nombre LIKE @${param} OR v.Codigo LIKE @${param} OR v.Marca LIKE @${param} OR v.Modelo LIKE @${param} OR v.Barras = @${param})`;
+        }).join(' AND ');
+
+        let query: string;
 
         if (usarFiltroSucursal) {
-            baseQuery += ` AND r.COD_AGEN = @agencia AND r.existencia > 0`;
             request.input('agencia', sql.Int, parseInt(agencia));
+
+            // Versión optimizada con JOIN solo cuando es necesario
+            query = `
+                SELECT TOP 50 
+                    v.Codigo as id, 
+                    v.Nombre as nombre, 
+                    r.existencia, 
+                    v.Marca as marca, 
+                    v.Modelo as modelo,
+                    v.[Precio P] as preciop, 
+                    v.[Precio A] as precioa
+                FROM dbo.VW_PRODUCTOS_LISTADO_WEB v WITH (NOLOCK)
+                INNER JOIN rel_productos_agencias r WITH (NOLOCK) 
+                    ON v.Codigo = r.cod_prod 
+                    AND r.COD_AGEN = @agencia 
+                    AND r.existencia > 0
+                WHERE ${condicionesBusqueda}
+                ORDER BY v.Nombre ASC
+            `;
+        } else {
+            // Sin JOIN cuando no se necesita filtro de agencia
+            query = `
+                SELECT TOP 50 
+                    v.Codigo as id, 
+                    v.Nombre as nombre, 
+                    v.Total as existencia, 
+                    v.Marca as marca, 
+                    v.Modelo as modelo,
+                    v.[Precio P] as preciop, 
+                    v.[Precio A] as precioa
+                FROM dbo.VW_PRODUCTOS_LISTADO_WEB v WITH (NOLOCK)
+                WHERE ${condicionesBusqueda}
+                ORDER BY v.Nombre ASC
+            `;
         }
 
-        const result = await request.query(baseQuery + ` ORDER BY v.Nombre ASC`);
-        return new Response(JSON.stringify(result.recordset), { status: 200 });
+        const result = await request.query(query);
+
+        return new Response(
+            JSON.stringify(result.recordset),
+            {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'public, max-age=60'
+                }
+            }
+        );
     } catch (e) {
-        return new Response(JSON.stringify({ error: "Error" }), { status: 500 });
+        console.error('Error en búsqueda de productos:', e);
+        return new Response(
+            JSON.stringify({ error: 'Error al buscar productos' }),
+            {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            }
+        );
     }
 };

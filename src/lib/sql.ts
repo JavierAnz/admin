@@ -5,11 +5,11 @@ import sql from 'mssql';
 const config = {
     user: import.meta.env.sqluser || '',
     password: import.meta.env.sqlpassword || '',
-    server: import.meta.env.sqlserver || '', 
-    database: 'Logistik_GOSA',
+    server: import.meta.env.sqlserver || '',
+    database: import.meta.env.sqldatabase || '',
     options: {
-        instanceName: 'SQLEXPRESS2008',
-        encrypt: false, 
+        instanceName: import.meta.env.instanceName || '',
+        encrypt: false,
         trustServerCertificate: true
     }
 };
@@ -17,7 +17,6 @@ const config = {
 export async function getInventario() {
     try {
         let pool = await sql.connect(config);
-        // Usamos las columnas exactas de tu VIEW [VW_PRODUCTOS_LISTADO_WEB]
         const result = await pool.request().query(`
 SELECT 
     Codigo, Nombre, Marca, Modelo, [Precio P], [Precio A], Barras,
