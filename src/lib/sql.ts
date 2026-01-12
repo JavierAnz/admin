@@ -20,17 +20,18 @@ export async function getInventario() {
         const result = await pool.request().query(`
 SELECT 
     Codigo, Nombre, Marca, Modelo, [Precio P], [Precio A], Barras,
-    /* Calculamos el total sumando solo las agencias de venta */
     (SELECT SUM(existencia) 
-     FROM rel_productos_agencias 
-     WHERE cod_prod = v.Codigo 
-       AND cod_agen NOT IN (5,6,7,8,9,12,14,20,21)) as Total
+     FROM rel_productos_agencias r
+     INNER JOIN agencias a ON r.cod_agen = a.cod_agen
+     WHERE r.cod_prod = v.Codigo 
+       AND (a.ES_SALA_VENTAS = 1 OR a.RECIBE_COMPRAS = 1)) as Total
 FROM dbo.VW_PRODUCTOS_LISTADO_WEB v
 WHERE EXISTS (
     SELECT 1 FROM rel_productos_agencias r
+    INNER JOIN agencias a ON r.cod_agen = a.cod_agen
     WHERE r.cod_prod = v.Codigo 
       AND r.existencia > 0
-      AND r.cod_agen NOT IN (5,6,7,8,9,12,14,20,21)
+      AND (a.ES_SALA_VENTAS = 1 OR a.RECIBE_COMPRAS = 1)
 )
 ORDER BY Nombre
         `);

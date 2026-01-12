@@ -23,15 +23,15 @@ export const GET: APIRoute = async ({ params }) => {
     const result = await pool.request()
       .input('cod_prod', sql.Int, productId)
       .query(`
-        SELECT 
-            R.cod_agen, 
-            R.existencia, 
-            A.Nom_Agen AS UBICACION
+       SELECT 
+        R.cod_agen, 
+        R.existencia, 
+        A.Nom_Agen AS UBICACION
         FROM rel_productos_agencias R
         INNER JOIN agencias A ON R.cod_agen = A.cod_agen
         WHERE R.cod_prod = @cod_prod 
-          AND R.existencia > 0 
-          AND R.cod_agen NOT IN (5,6,7,8,9,12,14,20,21)
+        AND (A.ES_SALA_VENTAS = 1 OR A.RECIBE_COMPRAS = 1)
+        AND R.existencia > 0 
         ORDER BY R.existencia DESC
       `);
 

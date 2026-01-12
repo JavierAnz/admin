@@ -1,13 +1,15 @@
 import sql from 'mssql';
 
+// Usamos import.meta.env que es el estándar de Astro
 const config: sql.config = {
-    user: process.env.SQL_USER!,
-    password: process.env.SQL_PASSWORD!,
-    server: process.env.SQL_SERVER!,
-    database: process.env.SQL_DATABASE!,
-    port: Number(process.env.SQL_PORT),
+    user: import.meta.env.sqluser,
+    password: import.meta.env.sqlpassword,
+    server: import.meta.env.sqlserver,
+    database: import.meta.env.sqldatabase,
+    // Si no hay puerto en el .env, mssql usa 1433 por defecto
+    port: Number(import.meta.env.sqlport) || 1433,
     options: {
-        encrypt: false,
+        encrypt: false, // En local suele ser false, en Vercel será true
         trustServerCertificate: true,
         connectTimeout: 30000
     }
@@ -16,6 +18,15 @@ const config: sql.config = {
 let pool: sql.ConnectionPool | null = null;
 
 export async function getDbConnection() {
+    // Si la variable llega vacía, lanzamos un error claro
+    if (!config.server) {
+        console.error("DEBUG: Variables cargadas:", {
+            server: import.meta.env.sqlserver,
+            user: import.meta.env.sqluser
+        });
+        throw new Error("Error: 'sqlserver' es undefined. Revisa tu archivo .env");
+    }
+
     if (pool?.connected) return pool;
 
     try {

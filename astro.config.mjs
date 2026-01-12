@@ -1,9 +1,11 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
-import node from '@astrojs/node';
+
 
 import svelte from '@astrojs/svelte';
+
+import vercel from '@astrojs/vercel';
 
 // https://astro.build/config
 export default defineConfig({
@@ -14,13 +16,9 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()]
   },
-  image: {
-    service: { entrypoint: 'astro/assets/services/noop' }
-  },
 
-  adapter: node({
-    mode: 'standalone'
-  }),
+
+  adapter: vercel(),
 
   integrations: [svelte()]
 });

@@ -16,7 +16,7 @@
   let loading = false;
   let soloMiSucursal = false;
   let timer: any;
-  let ordenamiento = "ninguno"; // "ninguno", "precio-asc", "precio-desc", "nombre-asc", "nombre-desc"
+  let ordenamiento = "ninguno";
 
   let listaCarrito: any[] = [];
   let mostrarResumen = false;
@@ -32,9 +32,7 @@
 
   $: productosOrdenados = (() => {
     if (ordenamiento === "ninguno") return productos;
-
     const copia = [...productos];
-
     switch (ordenamiento) {
       case "precio-asc":
         return copia.sort((a, b) => a.precioa - b.precioa);
@@ -55,10 +53,16 @@
       return;
     }
     loading = true;
-    const url = `/api/productos/search?q=${encodeURIComponent(busqueda)}&agencia=${idAgenciaUsuario || ""}&soloLocal=${soloMiSucursal}`;
-    const res = await fetch(url);
-    productos = res.ok ? await res.json() : [];
-    loading = false;
+    try {
+      const url = `/api/productos/search?q=${encodeURIComponent(busqueda)}&agencia=${idAgenciaUsuario || ""}&soloLocal=${soloMiSucursal}`;
+      const res = await fetch(url);
+      productos = res.ok ? await res.json() : [];
+    } catch (error) {
+      console.error("Error en la búsqueda:", error);
+      productos = [];
+    } finally {
+      loading = false;
+    }
   }
 
   function handleInput() {
@@ -81,13 +85,19 @@
     selProd: any = null,
     branchEx: any[] = [],
     loadEx = false;
+
   async function openDetail(p: any) {
     selProd = p;
     showModal = true;
-    loadEx = true;
-    const res = await fetch(`/api/existencias/${p.id}`);
-    branchEx = res.ok ? await res.json() : [];
-    loadEx = false;
+    // Las existencias por sucursal solo aplican para productos PROPIOS
+    if (p.origen === "PROPIO") {
+      loadEx = true;
+      const res = await fetch(`/api/existencias/${p.id}`);
+      branchEx = res.ok ? await res.json() : [];
+      loadEx = false;
+    } else {
+      branchEx = [];
+    }
   }
 </script>
 
@@ -148,63 +158,31 @@
       {/if}
     </div>
 
-    <!-- Controles de Ordenamiento -->
     {#if productos.length > 0}
       <div class="mt-3 flex items-center gap-2 flex-wrap">
         <span
           class="text-[10px] font-black text-slate-400 uppercase tracking-wider"
           >Ordenar:</span
         >
-        <button
-          on:click={() => (ordenamiento = "ninguno")}
-          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all {ordenamiento ===
-          'ninguno'
-            ? 'bg-[#3d3b3e] text-[#ffd312]'
-            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
-          type="button"
-        >
-          Predeterminado
-        </button>
-        <button
-          on:click={() => (ordenamiento = "precio-asc")}
-          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all {ordenamiento ===
-          'precio-asc'
-            ? 'bg-[#3d3b3e] text-[#ffd312]'
-            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
-          type="button"
-        >
-          Precio ↑
-        </button>
-        <button
-          on:click={() => (ordenamiento = "precio-desc")}
-          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all {ordenamiento ===
-          'precio-desc'
-            ? 'bg-[#3d3b3e] text-[#ffd312]'
-            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
-          type="button"
-        >
-          Precio ↓
-        </button>
-        <button
-          on:click={() => (ordenamiento = "nombre-asc")}
-          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all {ordenamiento ===
-          'nombre-asc'
-            ? 'bg-[#3d3b3e] text-[#ffd312]'
-            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
-          type="button"
-        >
-          A-Z
-        </button>
-        <button
-          on:click={() => (ordenamiento = "nombre-desc")}
-          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all {ordenamiento ===
-          'nombre-desc'
-            ? 'bg-[#3d3b3e] text-[#ffd312]'
-            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
-          type="button"
-        >
-          Z-A
-        </button>
+        {#each ["ninguno", "precio-asc", "precio-desc", "nombre-asc", "nombre-desc"] as modo}
+          <button
+            on:click={() => (ordenamiento = modo)}
+            class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all {ordenamiento ===
+            modo
+              ? 'bg-[#3d3b3e] text-[#ffd312]'
+              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
+          >
+            {modo === "ninguno"
+              ? "Predeterminado"
+              : modo === "precio-asc"
+                ? "Precio ↑"
+                : modo === "precio-desc"
+                  ? "Precio ↓"
+                  : modo === "nombre-asc"
+                    ? "A-Z"
+                    : "Z-A"}
+          </button>
+        {/each}
       </div>
     {/if}
   </div>
@@ -220,18 +198,26 @@
           class="w-16 h-16 bg-slate-50 rounded-xl flex-shrink-0 flex items-center justify-center p-2"
         >
           <img
-            src={`/api/producto-imagen/${item.id}`}
+            src={item.imagenUrl || `/api/producto-imagen/${item.id}`}
             alt=""
             class="max-h-full object-contain"
             on:error={(e) =>
               ((e.currentTarget as HTMLImageElement).src =
-                "public/placeholder-image.png")}
+                "/placeholder-image.png")}
           />
         </div>
         <div class="flex-1 min-w-0">
-          <h3 class="text-[10px] font-black text-slate-400 uppercase">
-            {item.modelo}
-          </h3>
+          <div class="flex items-center gap-2">
+            <h3 class="text-[10px] font-black text-slate-400 uppercase">
+              {item.modelo || "S/M"}
+            </h3>
+            {#if item.origen === "EXTERNO"}
+              <span
+                class="bg-blue-100 text-blue-600 text-[8px] px-1.5 py-0.5 rounded-md font-black"
+                >Bajo pedido</span
+              >
+            {/if}
+          </div>
           <h4
             class="text-sm font-black text-slate-800 uppercase truncate leading-tight"
           >
@@ -245,7 +231,7 @@
         </div>
         <div class="text-right">
           <div class="text-sm font-black text-slate-900 leading-none">
-            {GTQ.format(item.precioa.toFixed(2))}
+            {GTQ.format(item.precioa)}
           </div>
           <div
             class="text-[10px] font-black mt-1 {item.existencia > 0
@@ -257,6 +243,16 @@
         </div>
       </button>
     {/each}
+
+    {#if busqueda.length >= 2 && productos.length === 0 && !loading}
+      <div
+        class="p-12 text-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200"
+      >
+        <p class="text-slate-500 font-black uppercase text-xs tracking-widest">
+          No se encontraron resultados para tu búsqueda.
+        </p>
+      </div>
+    {/if}
   </div>
 
   {#if listaCarrito.length > 0}
@@ -275,7 +271,7 @@
                 localStorage.removeItem("cotizacion_ofit");
                 cargarCarrito();
               }}
-              class="text-[10px] text-black/50 hover:text-black font-bold uppercase border border-slate-100 px-2 py-1 rounded"
+              class="text-[10px] text-white/50 hover:text-white font-bold uppercase"
               >limpiar</button
             >
           </div>
@@ -286,49 +282,22 @@
               >
                 <span
                   class="text-[11px] font-bold text-slate-700 leading-tight flex-1"
-                  >COD: {item.id}</span
-                >
-                <img
-                  src={`/api/producto-imagen/${item.id}`}
-                  alt=""
-                  class="max-h-10 object-contain"
-                  on:error={(e) =>
-                    ((e.currentTarget as HTMLImageElement).src =
-                      "/img/picture_icon.png")}
-                />
-                <span class="text-[11px] font-bold text-slate-700">
-                  Q{item.precio}</span
+                  >{item.nombre}</span
                 >
                 <span
-                  class="px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-900"
-                  >x {item.cantidad}</span
+                  class="px-2 py-1 bg-slate-100 rounded text-[10px] font-black"
+                  >x{item.cantidad}</span
                 >
-
-                <span
-                  class="px-2 py-1 bg-slate-100 rounded text-[10px] font-black text-slate-900"
+                <span class="text-[11px] font-black text-slate-900"
                   >Q{item.precio * item.cantidad}</span
                 >
               </div>
             {/each}
-
-            <div class="flex justify-between items-center gap-2">
-              <span class="text-[11px] font-bold">Total:</span>
-              <span class="text-[11px] font-bold text-slate-700">
-                {GTQ.format(
-                  listaCarrito
-                    .reduce(
-                      (total, item) => total + item.precio * item.cantidad,
-                      0,
-                    )
-                    .toFixed(2),
-                )}
-              </span>
-            </div>
           </div>
           <div class="p-4">
             <button
               on:click={enviarWhatsApp}
-              class="w-full bg-[#25D366] text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all"
+              class="w-full bg-[#25D366] text-white py-4 rounded-2xl font-black text-xs uppercase flex items-center justify-center gap-2"
             >
               <span>📱</span> WhatsApp
             </button>
@@ -346,8 +315,9 @@
         {/if}
         <span
           class="absolute -top-1 -right-1 bg-[#e91b27] text-white text-[10px] font-black h-6 w-6 rounded-full flex items-center justify-center border-2 border-white"
-          >{listaCarrito.length}</span
         >
+          {listaCarrito.length}
+        </span>
       </button>
     </div>
   {/if}

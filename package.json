@@ -6,14 +6,12 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "start": "PORT=8080 node ./dist/server/entry.mjs",
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/node": "^9.5.1",
     "@astrojs/svelte": "^7.2.4",
+    "@astrojs/vercel": "^9.0.3",
     "@tailwindcss/vite": "^4.1.18",
-    "@types/mssql": "^9.1.8",
     "astro": "5.16.6",
     "md5": "^2.3.0",
     "mssql": "^12.2.0",
@@ -24,6 +22,7 @@
     "typescript": "^5.9.3"
   },
   "devDependencies": {
-    "@types/md5": "^2.3.6"
+    "@types/md5": "^2.3.6",
+    "@types/mssql": "^9.1.8"
   }
 }
