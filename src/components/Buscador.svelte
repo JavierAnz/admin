@@ -35,9 +35,9 @@
     const copia = [...productos];
     switch (ordenamiento) {
       case "precio-asc":
-        return copia.sort((a, b) => a.precioa - b.precioa);
+        return copia.sort((a, b) => (a.precioA || 0) - (b.precioA || 0));
       case "precio-desc":
-        return copia.sort((a, b) => b.precioa - a.precioa);
+        return copia.sort((a, b) => (b.precioA || 0) - (a.precioA || 0));
       case "nombre-asc":
         return copia.sort((a, b) => a.nombre.localeCompare(b.nombre));
       case "nombre-desc":
@@ -89,7 +89,7 @@
   async function openDetail(p: any) {
     selProd = p;
     showModal = true;
-    // Las existencias por sucursal solo aplican para productos PROPIOS
+
     if (p.origen === "PROPIO") {
       loadEx = true;
       const res = await fetch(`/api/existencias/${p.id}`);
@@ -231,7 +231,7 @@
         </div>
         <div class="text-right">
           <div class="text-sm font-black text-slate-900 leading-none">
-            {GTQ.format(item.precioa)}
+            {GTQ.format(item.precioA || 0)}
           </div>
           <div
             class="text-[10px] font-black mt-1 {item.existencia > 0

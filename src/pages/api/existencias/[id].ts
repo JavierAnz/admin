@@ -1,4 +1,3 @@
-// src/pages/api/existencias/[id].ts
 import type { APIRoute } from 'astro';
 import sql from 'mssql';
 
@@ -8,7 +7,8 @@ const config = {
   server: import.meta.env.sqlserver,
   database: import.meta.env.sqldatabase,
   options: {
-    encrypt: false,
+    instanceName: import.meta.env.instanceName,
+    encrypt: true,
     trustServerCertificate: true
   }
 };
@@ -19,17 +19,17 @@ export const GET: APIRoute = async ({ params }) => {
     let pool = await sql.connect(config);
 
     const result = await pool.request()
-      .input('cod_prod', sql.VarChar, productId)
+      .input('cod_prod', sql.VarChar, productId) // VarChar para evitar errores de conversión
       .query(`
-        SELECT 
-            R.cod_agen, 
-            R.existencia, 
-            A.Nom_Agen AS UBICACION
+       SELECT 
+        R.cod_agen, 
+        R.existencia, 
+        A.Nom_Agen AS UBICACION
         FROM rel_productos_agencias R
         INNER JOIN agencias A ON R.cod_agen = A.cod_agen
-        WHERE LTRIM(RTRIM(R.cod_prod)) = LTRIM(RTRIM(@cod_prod))
-          AND R.existencia > 0 
-          AND (A.ES_SALA_VENTAS = 1 OR A.RECIBE_COMPRAS = 1)
+        WHERE LTRIM(RTRIM(R.cod_prod)) = LTRIM(RTRIM(@cod_prod)) -- Limpieza rigurosa de espacios
+        AND (A.ES_SALA_VENTAS = 1 OR A.RECIBE_COMPRAS = 1)
+        AND R.existencia > 0 
         ORDER BY R.existencia DESC
       `);
 
@@ -41,10 +41,7 @@ export const GET: APIRoute = async ({ params }) => {
 
     return new Response(JSON.stringify(existencias), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache'
-      }
+      headers: { 'Content-Type': 'application/json' }
     });
 
   } catch (e) {

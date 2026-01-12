@@ -3,8 +3,6 @@ import sql from 'mssql';
 import { getDbConnection } from '../../../lib/db';
 import { getIntcomexData } from '../../../lib/providers/intcomex';
 import { getDummyData } from '../../../lib/providers/dummyjson';
-// PASO 1: Importa la función de tu nuevo proveedor aquí
-// import { getNuevoProveedorData } from '../../../lib/providers/nuevoProveedor';
 
 export const GET: APIRoute = async ({ url }) => {
     const queryRaw = url.searchParams.get('q') || '';
@@ -16,30 +14,16 @@ export const GET: APIRoute = async ({ url }) => {
     }
 
     try {
-        /**
-         * PASOS PARA AGREGAR OTRA API:
-         * * 1. CREAR EL PROVEEDOR: Crea un archivo en `src/lib/providers/nombre.ts` que devuelva 
-         * un array de `ProductoUniversal[]`.
-         * * 2. AGREGAR A Promise.all: Añade la llamada a la función del nuevo proveedor en el 
-         * arreglo de abajo. 
-         * - Usa `.catch(() => [])` para que si esa API falla, el resto de la búsqueda siga funcionando.
-         * - Usa `soloLocal ? Promise.resolve([]) : ...` para que no consumas la API externa 
-         * si el usuario activó el filtro de "Mi Sucursal".
-         * * 3. COMBINAR RESULTADOS: Agrega la constante resultante al array final de `resultados`.
-         */
-
-        const [resLocal, resIntcomex, resDummy, /* resNuevo */] = await Promise.all([
+        const [resLocal, resIntcomex, resDummy] = await Promise.all([
             buscarLocal(queryRaw, agencia, soloLocal).catch(err => {
                 console.error("Error SQL Local:", err);
                 return [];
             }),
             soloLocal ? Promise.resolve([]) : getIntcomexData(queryRaw).catch(() => []),
             soloLocal ? Promise.resolve([]) : getDummyData(queryRaw).catch(() => []),
-            // soloLocal ? Promise.resolve([]) : getNuevoProveedorData(queryRaw).catch(() => [])
         ]);
 
-        // PASO 4: Une la nueva constante aquí
-        const resultados = [...resLocal, ...resIntcomex, ...resDummy /* , ...resNuevo */];
+        const resultados = [...resLocal, ...resIntcomex, ...resDummy];
 
         return new Response(JSON.stringify(resultados), {
             status: 200,
@@ -57,9 +41,6 @@ export const GET: APIRoute = async ({ url }) => {
     }
 };
 
-/**
- * Función auxiliar para la búsqueda en SQL Server Local
- */
 async function buscarLocal(queryRaw: string, agencia: string, soloLocal: boolean) {
     const pool = await getDbConnection();
     const request = pool.request();
@@ -77,9 +58,14 @@ async function buscarLocal(queryRaw: string, agencia: string, soloLocal: boolean
         request.input('agencia', sql.Int, parseInt(agencia));
         query = `
             SELECT TOP 50 
-                v.Codigo as id, v.Nombre as nombre, r.existencia, 
-                v.Marca as marca, v.Modelo as modelo,
-                v.[Precio A] as precioa, 'PROPIO' as origen
+                v.Codigo as id, 
+                v.Nombre as nombre, 
+                r.existencia, 
+                v.Marca as marca, 
+                v.Modelo as modelo,
+                v.[Precio P] as precioP,
+                v.[Precio A] as precioA,
+                'PROPIO' as origen
             FROM dbo.VW_PRODUCTOS_LISTADO_WEB v WITH (NOLOCK)
             INNER JOIN rel_productos_agencias r WITH (NOLOCK) 
                 ON v.Codigo = r.cod_prod 
@@ -100,9 +86,9 @@ async function buscarLocal(queryRaw: string, agencia: string, soloLocal: boolean
                        AND (a.ES_SALA_VENTAS = 1 OR a.RECIBE_COMPRAS = 1)) as existencia, 
                     v.Marca as marca, 
                     v.Modelo as modelo,
-                    v.[Precio P] as preciop, 
-                    v.[Precio A] as precioa,
-                    'PROPIO' as origen -- <--- ESTA LÍNEA ES LA QUE FALTA
+                    v.[Precio P] as precioP, 
+                    v.[Precio A] as precioA,
+                    'PROPIO' as origen
                 FROM dbo.VW_PRODUCTOS_LISTADO_WEB v WITH (NOLOCK)
                 WHERE ${condicionesBusqueda}
                   AND EXISTS (

@@ -15,20 +15,21 @@
   const scale = tweened(0, { duration: 250, easing: cubicOut });
 
   let cantidad = 1;
-  let tipoPrecio = "precioa"; // 'preciop', 'precioa' o 'manual'
+  let tipoPrecio = "precioA"; // Cambiado de 'precioa' a 'precioA' para coincidir con la API
   let precioManual = 0;
 
   // Reactividad: Actualizar precio manual al abrir el producto
   $: if (producto && tipoPrecio !== "manual") {
-    precioManual = producto[tipoPrecio];
+    // Se usa la variable unificada para evitar el NaN
+    precioManual = producto[tipoPrecio] || 0;
   }
 
   function agregarAlCarrito() {
     if (!producto) return;
 
-    // Determinamos qué valor usar según la selección
+    // Se extrae el precio final usando las nuevas claves de la API
     const precioFinal =
-      tipoPrecio === "manual" ? precioManual : producto[tipoPrecio];
+      tipoPrecio === "manual" ? precioManual : producto[tipoPrecio] || 0;
 
     const carritoActual = JSON.parse(
       localStorage.getItem("cotizacion_ofit") || "[]",
@@ -38,8 +39,8 @@
       id: producto.id,
       nombre: producto.nombre,
       precio: precioFinal,
-      precioOriginal: producto.preciop,
-      precioOferta: producto.precioa,
+      precioOriginal: producto.precioP, // Cambiado a precioP
+      precioOferta: producto.precioA, // Cambiado a precioA
       tipoSeleccionado: tipoPrecio,
       modelo: producto.modelo,
       marca: producto.marca,
@@ -65,9 +66,10 @@
     $scale = 1;
     if (typeof document !== "undefined")
       document.body.style.overflow = "hidden";
-    // Reset de valores al abrir
-    tipoPrecio = "precioa";
-    if (producto) precioManual = producto.precioa;
+
+    // Reset de valores al abrir con nombres de variables unificados
+    tipoPrecio = "precioA";
+    if (producto) precioManual = producto.precioA || 0;
   } else {
     $scale = 0;
     if (typeof document !== "undefined") document.body.style.overflow = "";
@@ -94,8 +96,6 @@
     on:keydown={(e) => e.key === "Escape" && close()}
     on:click={close}
   >
-    <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
-    <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
     <div
       class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden transform relative flex flex-col"
       role="document"
@@ -138,7 +138,7 @@
               >
               <span
                 class="px-2 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded uppercase"
-                >{producto.modelo}</span
+                >{producto.modelo || "S/M"}</span
               >
             </div>
 
@@ -151,19 +151,19 @@
 
               <button
                 class="w-full p-3 rounded-xl border transition-all flex justify-between items-center {tipoPrecio ===
-                'preciop'
+                'precioP'
                   ? 'border-[#ffd312] bg-[#ffd312]/5 ring-2 ring-[#ffd312]'
                   : 'border-slate-100 bg-slate-50'}"
-                on:click={() => (tipoPrecio = "preciop")}
+                on:click={() => (tipoPrecio = "precioP")}
               >
                 <div class="flex items-center gap-3">
                   <div
                     class="h-4 w-4 rounded-full border-2 border-slate-300 flex items-center justify-center {tipoPrecio ===
-                    'preciop'
+                    'precioP'
                       ? 'border-[#ffd312]'
                       : ''}"
                   >
-                    {#if tipoPrecio === "preciop"}<div
+                    {#if tipoPrecio === "precioP"}<div
                         class="h-2 w-2 bg-[#ffd312] rounded-full"
                       ></div>{/if}
                   </div>
@@ -172,25 +172,25 @@
                   >
                 </div>
                 <span class="text-base font-bold text-slate-900"
-                  >{GTQ.format(producto.preciop)}</span
+                  >{GTQ.format(producto.precioP || 0)}</span
                 >
               </button>
 
               <button
                 class="w-full p-3 rounded-xl border transition-all flex justify-between items-center {tipoPrecio ===
-                'precioa'
+                'precioA'
                   ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500'
                   : 'border-slate-100 bg-slate-50'}"
-                on:click={() => (tipoPrecio = "precioa")}
+                on:click={() => (tipoPrecio = "precioA")}
               >
                 <div class="flex items-center gap-3">
                   <div
                     class="h-4 w-4 rounded-full border-2 border-slate-300 flex items-center justify-center {tipoPrecio ===
-                    'precioa'
+                    'precioA'
                       ? 'border-emerald-500'
                       : ''}"
                   >
-                    {#if tipoPrecio === "precioa"}<div
+                    {#if tipoPrecio === "precioA"}<div
                         class="h-2 w-2 bg-emerald-500 rounded-full"
                       ></div>{/if}
                   </div>
@@ -199,7 +199,7 @@
                   >
                 </div>
                 <span class="text-base font-black text-emerald-700"
-                  >{GTQ.format(producto.precioa)}</span
+                  >{GTQ.format(producto.precioA || 0)}</span
                 >
               </button>
 
@@ -225,7 +225,7 @@
                         ></div>{/if}
                     </div>
                     <span class="text-[9px] font-black text-blue-500 uppercase"
-                      >P</span
+                      >Personalizado</span
                     >
                   </div>
                 </button>
@@ -238,7 +238,7 @@
                     <input
                       type="number"
                       bind:value={precioManual}
-                      class="w-20 pl-8 pr-4 py-2 bg-white border border-blue-200 rounded-lg text-lg font-black text-blue-700 outline-none focus:ring-2 focus:ring-blue-400"
+                      class="w-full pl-8 pr-4 py-2 bg-white border border-blue-200 rounded-lg text-lg font-black text-blue-700 outline-none focus:ring-2 focus:ring-blue-400"
                       placeholder="0.00"
                     />
                   </div>
