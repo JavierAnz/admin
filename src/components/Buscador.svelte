@@ -74,10 +74,10 @@
     let mensaje = `*COTIZACIÓN OFIT*\n\n`;
     let total = 0;
     listaCarrito.forEach((item) => {
-      mensaje += ` ${item.nombre}\n   *Cant:* ${item.cantidad} - *Precio:* Q${(item.precio * item.cantidad).toFixed(2)}\n\n`;
+      mensaje += `${item.modelo}- ${item.marca} - ${item.nombre}\n   *Cant:* ${item.cantidad} - *Precio:* ${GTQ.format(item.precio * item.cantidad)}\n\n`;
       total += item.precio * item.cantidad;
     });
-    mensaje += `*TOTAL: Q${total.toFixed(2)}*`;
+    mensaje += `*TOTAL: ${GTQ.format(total)}*`;
     window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, "_blank");
   }
 
@@ -281,15 +281,34 @@
                 class="flex justify-between items-center gap-2 pb-2 border-b border-slate-50"
               >
                 <span
-                  class="text-[11px] font-bold text-slate-700 leading-tight flex-1"
-                  >{item.nombre}</span
+                  class="w-16 h-16 bg-slate-50 rounded-xl flex-shrink-0 flex items-center justify-center p-2"
                 >
+                  <img
+                    src={item.imagenUrl || `/api/producto-imagen/${item.id}`}
+                    alt=""
+                    class="max-h-full object-contain"
+                    on:error={(e) =>
+                      ((e.currentTarget as HTMLImageElement).src =
+                        "/placeholder-image.png")}
+                  />
+                </span>
+                <span
+                  class="text-[10px] font-black uppercase text-slate-400 tracking-widest"
+                  >COD: {item.id}</span
+                >
+                <span class="text-[12px] font-bold leading-tight flex-1"
+                  >{item.modelo}
+                </span>
+                <span class="text-[10px] font-bold leading-tight flex-1"
+                  >{item.marca}
+                </span>
+
                 <span
                   class="px-2 py-1 bg-slate-100 rounded text-[10px] font-black"
-                  >x{item.cantidad}</span
+                  >x {item.cantidad}</span
                 >
                 <span class="text-[11px] font-black text-slate-900"
-                  >Q{item.precio * item.cantidad}</span
+                  >{GTQ.format(item.precio * item.cantidad)}</span
                 >
               </div>
             {/each}
