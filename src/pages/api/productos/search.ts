@@ -101,7 +101,8 @@ async function buscarLocal(queryRaw: string, agencia: string, soloLocal: boolean
                     v.Marca as marca, 
                     v.Modelo as modelo,
                     v.[Precio P] as preciop, 
-                    v.[Precio A] as precioa
+                    v.[Precio A] as precioa,
+                    'PROPIO' as origen -- <--- ESTA LÍNEA ES LA QUE FALTA
                 FROM dbo.VW_PRODUCTOS_LISTADO_WEB v WITH (NOLOCK)
                 WHERE ${condicionesBusqueda}
                   AND EXISTS (

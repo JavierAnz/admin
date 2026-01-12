@@ -225,7 +225,7 @@
                         ></div>{/if}
                     </div>
                     <span class="text-[9px] font-black text-blue-500 uppercase"
-                      >Precio Especial</span
+                      >P</span
                     >
                   </div>
                 </button>
