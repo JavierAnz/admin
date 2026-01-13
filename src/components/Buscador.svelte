@@ -10,7 +10,6 @@
     style: "currency",
     currency: "GTQ",
   });
-
   let busqueda = "";
   let productos: any[] = [];
   let loading = false;
@@ -231,7 +230,7 @@
         </div>
         <div class="text-right">
           <div class="text-sm font-black text-slate-900 leading-none">
-            {GTQ.format(item.precioA || 0)}
+            {GTQ.format(item.precioP || 0)}
           </div>
           <div
             class="text-[10px] font-black mt-1 {item.existencia > 0
@@ -271,8 +270,7 @@
                 localStorage.removeItem("cotizacion_ofit");
                 cargarCarrito();
               }}
-              class="text-[10px] text-white/50 hover:text-white font-bold uppercase"
-              >limpiar</button
+              class="text-[10px] font-black uppercase">limpiar</button
             >
           </div>
           <div class="max-h-64 overflow-y-auto p-4 space-y-3">
@@ -310,8 +308,30 @@
                 <span class="text-[11px] font-black text-slate-900"
                   >{GTQ.format(item.precio * item.cantidad)}</span
                 >
+                <button
+                  on:click={() => {
+                    listaCarrito = listaCarrito.filter((i) => i.id !== item.id);
+                    localStorage.setItem(
+                      "cotizacion_ofit",
+                      JSON.stringify(listaCarrito),
+                    );
+                  }}
+                  class="text-red-500 font-black text-[10px]">X</button
+                >
               </div>
             {/each}
+            <div class="flex justify-between items-center">
+              <span class="text-[12px] font-black text-slate-900">Subtotal</span
+              >
+              <span class="text-[12px] font-black text-slate-900"
+                >{GTQ.format(
+                  listaCarrito.reduce(
+                    (total, item) => total + item.precio * item.cantidad,
+                    0,
+                  ),
+                )}</span
+              >
+            </div>
           </div>
           <div class="p-4">
             <button

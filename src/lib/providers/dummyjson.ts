@@ -3,9 +3,7 @@ import type { ProductoUniversal } from '../../types/inventario';
 export async function getDummyData(query?: string): Promise<ProductoUniversal[]> {
     try {
         // Endpoint de búsqueda pública sin necesidad de API KEY
-        const url = query
-            ? `https://dummyjson.com/products/search?q=${encodeURIComponent(query)}`
-            : 'https://dummyjson.com/products?limit=10';
+        const url = query ? `https://dummyjson.com/products/search?q=${query}` : 'https://dummyjson.com/products';
 
         const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
         if (!res.ok) return [];

@@ -16,14 +16,15 @@ const cache = {
 // Cache de imágenes procesadas (LRU simple)
 class ImageCache {
   private cache = new Map<string, { buffer: Buffer; timestamp: number }>();
-  private readonly maxSize = 50; // Máximo 50 imágenes en cache
-  private readonly maxAge = 1000 * 60 * 30; // 30 minutos
+  private readonly maxSize = 50;
+  private readonly maxAge = 1000 * 60 * 30;
 
   set(id: string, buffer: Buffer): void {
-    // Limpieza si excede el tamaño
     if (this.cache.size >= this.maxSize) {
       const oldestKey = this.cache.keys().next().value;
-      this.cache.delete(oldestKey);
+      if (oldestKey !== undefined) {
+        this.cache.delete(oldestKey);
+      }
     }
     this.cache.set(id, { buffer, timestamp: Date.now() });
   }
@@ -32,7 +33,6 @@ class ImageCache {
     const entry = this.cache.get(id);
     if (!entry) return null;
 
-    // Validar antigüedad
     if (Date.now() - entry.timestamp > this.maxAge) {
       this.cache.delete(id);
       return null;
@@ -48,32 +48,33 @@ class ImageCache {
 
 const imageCache = new ImageCache();
 
-// Configuración de Sharp optimizada
+// Configuración de Sharp mejorada
 const sharpConfig = {
   failOnError: false,
-  limitInputPixels: 268402689, // ~16k x 16k max
-  sequentialRead: true // Mejor para streams
+  limitInputPixels: 268402689,
+  sequentialRead: true
 };
 
+// Opciones de redimensionamiento mejoradas
 const resizeOptions = {
-  width: 300,
-  height: 300,
+  width: 350, // Balance entre calidad y tamaño
+  height: 350,
   fit: 'inside' as const,
   withoutEnlargement: true,
   kernel: 'lanczos3' as const
 };
 
+// Opciones WebP optimizadas para calidad/rendimiento
 const webpOptions = {
-  quality: 75,
-  effort: 1, // Más rápido que 2, diferencia mínima de calidad
-  smartSubsample: true
+  quality: 82, // Balance óptimo calidad/velocidad
+  effort: 1, // Rápido, mínima diferencia visual vs effort: 2
+  smartSubsample: true,
+  nearLossless: false
 };
 
-// Pre-carga del placeholder (lazy + singleton)
+// Pre-carga del placeholder
 async function getPlaceholder(): Promise<Buffer> {
   if (cache.placeholder) return cache.placeholder;
-
-  // Evitar múltiples cargas simultáneas
   if (cache.placeholderPromise) return cache.placeholderPromise;
 
   cache.placeholderPromise = (async () => {
@@ -86,11 +87,10 @@ async function getPlaceholder(): Promise<Buffer> {
         .webp(webpOptions)
         .toBuffer();
     } catch {
-      // Generamos placeholder gris
       cache.placeholder = await sharp({
         create: {
-          width: 300,
-          height: 300,
+          width: 400,
+          height: 400,
           channels: 3,
           background: { r: 240, g: 240, b: 240 }
         }
@@ -104,42 +104,78 @@ async function getPlaceholder(): Promise<Buffer> {
   return cache.placeholderPromise;
 }
 
-// Procesamiento de imagen con Sharp
+// Procesamiento de imagen optimizado - SOLO mejoras de calidad
 async function processImage(buffer: Buffer): Promise<Buffer> {
   return sharp(buffer, sharpConfig)
     .rotate() // Auto-rotación EXIF
+    .sharpen({
+      sigma: 0.3, // Sharpening muy sutil
+      m1: 0.5,
+      m2: 0.1
+    })
     .resize(resizeOptions)
     .webp(webpOptions)
     .toBuffer();
+}
+
+// Procesamiento con remoción de fondo (SOLO para query param ?transparent=true)
+async function processImageWithTransparency(buffer: Buffer): Promise<Buffer> {
+  return sharp(buffer, sharpConfig)
+    .rotate()
+    .removeAlpha()
+    .flatten({ background: '#ffffff' })
+    .threshold(245) // Umbral alto para blancos
+    .negate()
+    .toColorspace('b-w')
+    .negate()
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+    .then(async ({ data, info }) => {
+      return sharp(buffer, sharpConfig)
+        .rotate()
+        .composite([{
+          input: data,
+          blend: 'dest-in',
+          raw: {
+            width: info.width,
+            height: info.height,
+            channels: info.channels
+          }
+        }])
+        .sharpen({ sigma: 0.3, m1: 0.5, m2: 0.1 })
+        .resize(resizeOptions)
+        .webp(webpOptions)
+        .toBuffer();
+    });
 }
 
 // Headers comunes
 const headers = {
   placeholder: {
     'Content-Type': 'image/webp',
-    'Cache-Control': 'public, max-age=86400, immutable' // 1 día
+    'Cache-Control': 'public, max-age=86400, immutable'
   },
   image: (size: number) => ({
     'Content-Type': 'image/webp',
-    'Cache-Control': 'public, max-age=2592000, immutable', // 30 días
+    'Cache-Control': 'public, max-age=2592000, immutable',
     'Content-Length': size.toString(),
     'Vary': 'Accept'
   }),
   error: {
     'Content-Type': 'image/webp',
-    'Cache-Control': 'public, max-age=300' // 5 min para errores
+    'Cache-Control': 'public, max-age=300'
   },
   transparent: {
     'Content-Type': 'image/gif',
-    'Cache-Control': 'public, max-age=604800, immutable' // 7 días
+    'Cache-Control': 'public, max-age=604800, immutable'
   }
 };
 
-export const GET: APIRoute = async ({ params }) => {
+export const GET: APIRoute = async ({ params, request }) => {
   const id = params.id;
 
-  // Validación temprana
-  if (!id || !/^\d+$/.test(id)) {
+  // Validación y type guard
+  if (!id || typeof id !== 'string' || !/^\d+$/.test(id)) {
     return new Response(cache.transparentPixel as any, { headers: headers.transparent });
   }
 
@@ -149,10 +185,13 @@ export const GET: APIRoute = async ({ params }) => {
     return new Response(cached as any, { headers: headers.image(cached.length) });
   }
 
+  // Parámetro opcional para remoción de fondo (opt-in)
+  const url = new URL(request.url);
+  const transparent = url.searchParams.get('transparent') === 'true';
+
   try {
     const pool = await getDbConnection();
 
-    // Query optimizada con NOLOCK
     const result = await pool.request()
       .input('id', sql.Int, parseInt(id))
       .query(`
@@ -166,19 +205,29 @@ export const GET: APIRoute = async ({ params }) => {
     let optimizedBuffer: Buffer;
 
     if (!result.recordset[0]?.Imagen1) {
-      // Usamos el placeholder cacheado
       optimizedBuffer = await getPlaceholder();
-
       return new Response(optimizedBuffer as any, {
         headers: headers.placeholder
       });
     }
 
-    // Procesamos la imagen
     const buffer = result.recordset[0].Imagen1;
-    optimizedBuffer = await processImage(buffer);
 
-    // Guardamos en cache
+    // Procesamiento rápido por defecto, transparencia solo si se solicita
+    try {
+      optimizedBuffer = transparent
+        ? await processImageWithTransparency(buffer)
+        : await processImage(buffer);
+    } catch (processError) {
+      console.warn(`Error procesando imagen ${id}:`, processError);
+      // Fallback: procesamiento básico
+      optimizedBuffer = await sharp(buffer, sharpConfig)
+        .rotate()
+        .resize(resizeOptions)
+        .webp(webpOptions)
+        .toBuffer();
+    }
+
     imageCache.set(id, optimizedBuffer);
 
     return new Response(optimizedBuffer as any, {
@@ -188,16 +237,13 @@ export const GET: APIRoute = async ({ params }) => {
   } catch (e) {
     console.error(`Error cargando imagen ${id}:`, e);
 
-    // Devolvemos placeholder en caso de error
     try {
       const placeholder = await getPlaceholder();
       return new Response(placeholder as any, { headers: headers.error });
     } catch {
-      // Último recurso: pixel transparente
       return new Response(cache.transparentPixel as any, { headers: headers.transparent });
     }
   }
 };
 
-// Opcional: función para limpiar cache manualmente si es necesario
 export const clearCache = () => imageCache.clear();

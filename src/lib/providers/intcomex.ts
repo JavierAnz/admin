@@ -45,6 +45,6 @@ export async function getIntcomexData(query?: string): Promise<ProductoUniversal
     }));
   } catch (error) {
     console.error("Fallo en proveedor :", error);
-    return []; // Retorna vacío para no romper la búsqueda global
+    return [];
   }
 }

@@ -96,6 +96,8 @@
     on:keydown={(e) => e.key === "Escape" && close()}
     on:click={close}
   >
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
       class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden transform relative flex flex-col"
       role="document"
@@ -113,7 +115,7 @@
       <div class="overflow-y-auto p-6 md:p-8">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
           <div
-            class="bg-slate-50 rounded-2xl p-4 flex items-center justify-center border border-slate-100 h-64"
+            class="bg-slate-50 rounded-2xl p-4 flex items-center justify-center border border-slate-100 h-64 click"
           >
             <img
               src={`/api/producto-imagen/${producto.id}`}
@@ -225,7 +227,7 @@
                         ></div>{/if}
                     </div>
                     <span class="text-[9px] font-black text-blue-500 uppercase"
-                      >Personalizado</span
+                      >P</span
                     >
                   </div>
                 </button>
@@ -237,9 +239,9 @@
                     >
                     <input
                       type="number"
+                      min={producto.precioA}
                       bind:value={precioManual}
-                      class="w-full pl-8 pr-4 py-2 bg-white border border-blue-200 rounded-lg text-lg font-black text-blue-700 outline-none focus:ring-2 focus:ring-blue-400"
-                      placeholder="0.00"
+                      class="w-[120px] pl-8 pr-4 py-2 bg-white border border-blue-200 rounded-lg text-lg font-black text-blue-700 outline-none focus:ring-2 focus:ring-blue-400"
                     />
                   </div>
                 {/if}
