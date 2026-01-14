@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import ProductoDetalleModal from "./ProductoDetalleModal.svelte";
+  import Analytics from "@vercel/analytics/astro";
 
   export let idAgenciaUsuario: string | null | undefined = undefined;
   export let nombreAgencia = "";

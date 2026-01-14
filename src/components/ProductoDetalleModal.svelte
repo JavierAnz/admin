@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tweened } from "svelte/motion";
   import { cubicOut } from "svelte/easing";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
 
   export let showModal = false;
   export let producto: any = null;
@@ -15,19 +15,64 @@
   const scale = tweened(0, { duration: 250, easing: cubicOut });
 
   let cantidad = 1;
-  let tipoPrecio = "precioA"; // Cambiado de 'precioa' a 'precioA' para coincidir con la API
+  let tipoPrecio = "precioA";
   let precioManual = 0;
+
+  // Countdown
+  let dias = 0;
+  let horas = 0;
+  let minutos = 0;
+  let segundos = 0;
+  let interval: any;
+  let expirado = false;
 
   // Reactividad: Actualizar precio manual al abrir el producto
   $: if (producto && tipoPrecio !== "manual") {
-    // Se usa la variable unificada para evitar el NaN
     precioManual = producto[tipoPrecio] || 0;
+  }
+
+  function calcularTiempoRestante() {
+    if (!producto?.vigencia) return;
+
+    try {
+      const ahora = new Date().getTime();
+      // Usamos el constructor directo. ISO 8601 es soportado nativamente.
+      const fechaVigencia = new Date(producto.vigencia).getTime();
+
+      // Validación de seguridad
+      if (isNaN(fechaVigencia)) {
+        console.error(
+          "Error: La vigencia no tiene un formato de fecha válido",
+          producto.vigencia,
+        );
+        return;
+      }
+
+      const diferencia = fechaVigencia - ahora;
+
+      if (diferencia <= 0) {
+        expirado = true;
+        if (interval) {
+          clearInterval(interval);
+          interval = null;
+        }
+        return;
+      }
+
+      dias = Math.floor(diferencia / (1000 * 60 * 60 * 24));
+      horas = Math.floor(
+        (diferencia % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+      );
+      minutos = Math.floor((diferencia % (1000 * 60 * 60)) / (1000 * 60));
+      segundos = Math.floor((diferencia % (1000 * 60)) / 1000);
+    } catch (e) {
+      console.error("Error al calcular el tiempo:", e);
+    }
   }
 
   function agregarAlCarrito() {
     if (!producto) return;
 
-    // Se extrae el precio final usando las nuevas claves de la API
     const precioFinal =
       tipoPrecio === "manual" ? precioManual : producto[tipoPrecio] || 0;
 
@@ -39,8 +84,9 @@
       id: producto.id,
       nombre: producto.nombre,
       precio: precioFinal,
-      precioOriginal: producto.precioP, // Cambiado a precioP
-      precioOferta: producto.precioA, // Cambiado a precioA
+      precioPublico: producto.precioP,
+      precioOferta: producto.precioA,
+      precioDescuento: producto.precioo,
       tipoSeleccionado: tipoPrecio,
       modelo: producto.modelo,
       marca: producto.marca,
@@ -62,18 +108,35 @@
     close();
   }
 
-  $: if (showModal) {
+  // Manejo de apertura/cierre del modal y el contador
+  $: if (showModal && producto) {
     $scale = 1;
     if (typeof document !== "undefined")
       document.body.style.overflow = "hidden";
 
-    // Reset de valores al abrir con nombres de variables unificados
+    // Reset de estados
     tipoPrecio = "precioA";
-    if (producto) precioManual = producto.precioA || 0;
-  } else {
+    precioManual = producto.precioA || 0;
+    expirado = false;
+
+    // Limpiar intervalo anterior
+    if (interval) clearInterval(interval);
+
+    // Verificación rigurosa: precioo como número y existencia de vigencia
+    const tieneOfertaValida = Number(producto.precioo) > 0;
+
+    if (tieneOfertaValida && producto.vigencia) {
+      calcularTiempoRestante();
+      interval = setInterval(calcularTiempoRestante, 1000);
+    }
+  } else if (!showModal) {
     $scale = 0;
     if (typeof document !== "undefined") document.body.style.overflow = "";
     cantidad = 1;
+    if (interval) {
+      clearInterval(interval);
+      interval = null;
+    }
   }
 
   function close() {
@@ -85,25 +148,25 @@
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   });
+
+  onDestroy(() => {
+    if (interval) clearInterval(interval);
+  });
 </script>
 
 {#if showModal && producto}
+  <!-- svelte-ignore a11y_interactive_supports_focus -->
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div
     class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4 z-[100]"
     role="dialog"
     aria-modal="true"
-    tabindex="-1"
-    on:keydown={(e) => e.key === "Escape" && close()}
     on:click={close}
   >
-    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden transform relative flex flex-col"
-      role="document"
       on:click|stopPropagation
-      on:keydown|stopPropagation
-      tabindex="0"
       style="transform: scale({$scale})"
     >
       <button
@@ -115,7 +178,7 @@
       <div class="overflow-y-auto p-6 md:p-8">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
           <div
-            class="bg-slate-50 rounded-2xl p-4 flex items-center justify-center border border-slate-100 h-64 click"
+            class="bg-slate-50 rounded-2xl p-4 flex items-center justify-center border border-slate-100 h-64"
           >
             <img
               src={`/api/producto-imagen/${producto.id}`}
@@ -142,15 +205,91 @@
                 class="px-2 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded uppercase"
                 >{producto.modelo || "S/M"}</span
               >
+              <span
+                class="px-2 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded uppercase"
+                >{producto.marca || "S/M"}</span
+              >
             </div>
 
-            <div class="space-y-2 mb-6">
-              <p
-                class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2"
+            {#if Number(producto.precioo) > 0 && producto.vigencia && !expirado}
+              <div
+                class="mb-4 w-full bg-gradient-to-r from-red-500 to-orange-500 rounded-xl p-3 shadow-lg relative overflow-hidden"
               >
-                Seleccionar Precio:
-              </p>
+                <div
+                  class="absolute inset-0 bg-white/10 animate-pulse-slow"
+                ></div>
+                <div class="relative z-10">
+                  <div class="flex items-center justify-center gap-2 mb-2">
+                    <span
+                      class="text-white text-[10px] font-black uppercase tracking-wider"
+                      >⏰ Oferta termina en:</span
+                    >
+                  </div>
 
+                  <div class="flex justify-center gap-1.5">
+                    {#if dias > 0}
+                      <div
+                        class="flex flex-col items-center bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1 min-w-[45px]"
+                      >
+                        <span class="text-lg font-black text-white tabular-nums"
+                          >{dias.toString().padStart(2, "0")}</span
+                        >
+                        <span
+                          class="text-[8px] font-bold text-white/80 uppercase"
+                          >Días</span
+                        >
+                      </div>
+                    {/if}
+
+                    <div
+                      class="flex flex-col items-center bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1 min-w-[45px]"
+                    >
+                      <span class="text-lg font-black text-white tabular-nums"
+                        >{horas.toString().padStart(2, "0")}</span
+                      >
+                      <span class="text-[8px] font-bold text-white/80 uppercase"
+                        >Hrs</span
+                      >
+                    </div>
+
+                    <span
+                      class="text-lg font-black text-white self-center animate-blink"
+                      >:</span
+                    >
+
+                    <div
+                      class="flex flex-col items-center bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1 min-w-[45px]"
+                    >
+                      <span class="text-lg font-black text-white tabular-nums"
+                        >{minutos.toString().padStart(2, "0")}</span
+                      >
+                      <span class="text-[8px] font-bold text-white/80 uppercase"
+                        >Min</span
+                      >
+                    </div>
+
+                    <span
+                      class="text-lg font-black text-white self-center animate-blink"
+                      >:</span
+                    >
+
+                    <div
+                      class="flex flex-col items-center bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1 min-w-[45px]"
+                    >
+                      <span
+                        class="text-lg font-black text-white tabular-nums animate-count"
+                        >{segundos.toString().padStart(2, "0")}</span
+                      >
+                      <span class="text-[8px] font-bold text-white/80 uppercase"
+                        >Seg</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {/if}
+
+            <div class="space-y-2 mb-6">
               <button
                 class="w-full p-3 rounded-xl border transition-all flex justify-between items-center {tipoPrecio ===
                 'precioP'
@@ -169,8 +308,10 @@
                         class="h-2 w-2 bg-[#ffd312] rounded-full"
                       ></div>{/if}
                   </div>
-                  <span class="text-[9px] font-black text-slate-400 uppercase"
-                    >Normal</span
+                  <span class="text-[9px] font-bold text-slate-400 uppercase"
+                    >{Number(producto.precioo) > 0
+                      ? "Precio Anterior"
+                      : "Normal"}</span
                   >
                 </div>
                 <span class="text-base font-bold text-slate-900"
@@ -196,14 +337,58 @@
                         class="h-2 w-2 bg-emerald-500 rounded-full"
                       ></div>{/if}
                   </div>
-                  <span class="text-[9px] font-black text-emerald-500 uppercase"
-                    >Efectivo</span
-                  >
+
+                  {#if Number(producto.precioo) > 0}
+                    <span class="text-[9px] font-bold text-slate-400 uppercase"
+                      >Oferta - Precio Aplica a cuotas</span
+                    >
+                  {:else}
+                    <span class="text-[9px] font-bold text-slate-400 uppercase"
+                      >Efectivo/Transferencia</span
+                    >
+                  {/if}
                 </div>
                 <span class="text-base font-black text-emerald-700"
                   >{GTQ.format(producto.precioA || 0)}</span
                 >
               </button>
+
+              {#if Number(producto.precioo) > 0}
+                <button
+                  class="w-full p-4 rounded-xl border-2 transition-all flex justify-between items-center relative overflow-hidden {tipoPrecio ===
+                  'precioo'
+                    ? 'border-red-500 bg-gradient-to-r from-red-500 to-orange-500 ring-4 ring-red-300 shadow-lg shadow-red-500/50'
+                    : 'border-red-400 bg-gradient-to-r from-red-50 to-orange-50'}"
+                  on:click={() => (tipoPrecio = "precioo")}
+                >
+                  <div class="flex items-center gap-3 relative z-10">
+                    <div
+                      class="h-5 w-5 rounded-full border-2 flex items-center justify-center {tipoPrecio ===
+                      'precioo'
+                        ? 'border-white bg-white'
+                        : 'border-red-500 bg-red-100'}"
+                    >
+                      {#if tipoPrecio === "precioo"}<div
+                          class="h-2.5 w-2.5 bg-red-600 rounded-full"
+                        ></div>{/if}
+                    </div>
+                    <span
+                      class="text-xs font-black uppercase {tipoPrecio ===
+                      'precioo'
+                        ? 'text-white'
+                        : 'text-red-600'}">🔥 OFERTA</span
+                    >
+                  </div>
+                  <div class="flex flex-col items-end relative z-10">
+                    <span
+                      class="text-xl font-black {tipoPrecio === 'precioo'
+                        ? 'text-white'
+                        : 'text-red-600'}"
+                      >{GTQ.format(producto.precioo || 0)}</span
+                    >
+                  </div></button
+                >
+              {/if}
 
               <div
                 class="p-3 rounded-xl border transition-all {tipoPrecio ===
@@ -227,7 +412,7 @@
                         ></div>{/if}
                     </div>
                     <span class="text-[9px] font-black text-blue-500 uppercase"
-                      >P</span
+                      >Personalizado</span
                     >
                   </div>
                 </button>
@@ -239,7 +424,6 @@
                     >
                     <input
                       type="number"
-                      min={producto.precioA}
                       bind:value={precioManual}
                       class="w-[120px] pl-8 pr-4 py-2 bg-white border border-blue-200 rounded-lg text-lg font-black text-blue-700 outline-none focus:ring-2 focus:ring-blue-400"
                     />
@@ -303,3 +487,48 @@
     </div>
   </div>
 {/if}
+
+<style>
+  @keyframes blink {
+    0%,
+    49% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0.3;
+    }
+  }
+  @keyframes pulse-slow {
+    0%,
+    100% {
+      opacity: 0.1;
+    }
+    50% {
+      opacity: 0.2;
+    }
+  }
+  @keyframes count {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  .animate-blink {
+    animation: blink 1s infinite;
+  }
+  .animate-pulse-slow {
+    animation: pulse-slow 2s infinite;
+  }
+  .animate-count {
+    animation: count 1s infinite;
+  }
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+</style>

@@ -65,6 +65,8 @@ async function buscarLocal(queryRaw: string, agencia: string, soloLocal: boolean
                 v.Modelo as modelo,
                 v.[Precio P] as precioP,
                 v.[Precio A] as precioA,
+                v.[Precio O] as precioo,
+                v.Vigencia as vigencia,
                 'PROPIO' as origen
             FROM dbo.VW_PRODUCTOS_LISTADO_WEB v WITH (NOLOCK)
             INNER JOIN rel_productos_agencias r WITH (NOLOCK) 
@@ -88,7 +90,9 @@ async function buscarLocal(queryRaw: string, agencia: string, soloLocal: boolean
                     v.Modelo as modelo,
                     v.[Precio P] as precioP, 
                     v.[Precio A] as precioA,
-                    'PROPIO' as origen
+                    v.[Precio O] as precioo,
+                    v.Vigencia as vigencia,
+                        'PROPIO' as origen
                 FROM dbo.VW_PRODUCTOS_LISTADO_WEB v WITH (NOLOCK)
                 WHERE ${condicionesBusqueda}
                   AND EXISTS (
