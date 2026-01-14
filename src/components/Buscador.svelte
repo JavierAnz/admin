@@ -400,16 +400,26 @@
                   />
                 </span>
                 <div class="flex-1 flex flex-col">
-                  <span class="text-[10px] font-black text-slate-400 uppercase"
+                  <span class="text-[8px] font-black uppercase"
                     >COD: {item.id}</span
                   >
                   <span class="text-[11px] font-bold leading-tight"
                     >{item.modelo}</span
                   >
+                  {#if item.cantidad > 1}
+                    <span
+                      class="text-[10px] font-black text-slate-400 uppercase"
+                    >
+                      {GTQ.format(item.precio)}</span
+                    >
+                  {/if}
                 </div>
                 <span
                   class="px-2 py-1 bg-slate-100 rounded text-[10px] font-black"
-                  >x{item.cantidad}</span
+                  >x {item.cantidad}</span
+                >
+                <span class="text-[10px] font-black text-slate-400 uppercase"
+                  >{GTQ.format(item.precio * item.cantidad)}</span
                 >
                 <button
                   on:click={() => {
@@ -423,6 +433,11 @@
                 >
               </div>
             {/each}
+            <span class="text-[10px] font-bold uppercase"
+              >Total: {GTQ.format(
+                listaCarrito.reduce((a, b) => a + b.precio * b.cantidad, 0),
+              )}</span
+            >
           </div>
           <div class="p-4 bg-slate-50">
             <button
