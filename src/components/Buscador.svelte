@@ -191,54 +191,73 @@
     {#each productosOrdenados as item}
       <button
         type="button"
-        class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:border-[#ffd312] transition-all cursor-pointer active:scale-95 text-left w-full"
+        class="bg-white p-4 rounded-2xl border transition-all cursor-pointer active:scale-95 text-left w-full relative overflow-hidden {item.precioo >
+        0
+          ? 'border-2 border-red-400 shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30'
+          : 'border border-slate-100 shadow-sm hover:border-[#ffd312]'}"
         on:click={() => openDetail(item)}
       >
-        <div
-          class="w-16 h-16 bg-slate-50 rounded-xl flex-shrink-0 flex items-center justify-center p-2"
-        >
-          <img
-            src={item.imagenUrl || `/api/producto-imagen/${item.id}`}
-            alt=""
-            class="max-h-full object-contain"
-            on:error={(e) =>
-              ((e.currentTarget as HTMLImageElement).src =
-                "/placeholder-image.png")}
-          />
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
-            <h3 class="text-[10px] font-black text-slate-400 uppercase">
-              {item.modelo || "S/M"}
-            </h3>
-            {#if item.origen === "EXTERNO"}
-              <span
-                class="bg-blue-100 text-blue-600 text-[8px] px-1.5 py-0.5 rounded-md font-black"
-                >Bajo pedido</span
-              >
-            {/if}
-          </div>
-          <h4
-            class="text-sm font-black text-slate-800 uppercase truncate leading-tight"
-          >
-            {item.nombre}
-          </h4>
-          <p
-            class="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter"
-          >
-            {item.marca} | ID: {item.id}
-          </p>
-        </div>
-        <div class="text-right">
-          <div class="text-sm font-black text-slate-900 leading-none">
-            {GTQ.format(item.precioP || 0)}
-          </div>
+        <!-- Badge de OFERTA si tiene precio de oferta -->
+        {#if item.precioo > 0}
           <div
-            class="text-[10px] font-black mt-1 {item.existencia > 0
-              ? 'text-blue-600'
-              : 'text-red-300'} uppercase"
+            class="absolute top-2 right-2 bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase shadow-md z-10 flex items-center gap-1"
           >
-            {Math.floor(item.existencia)} UND
+            <span>🔥</span>
+            <span>OFERTA</span>
+          </div>
+          <!-- Efecto de brillo sutil -->
+          <div
+            class="absolute inset-0 bg-gradient-to-r from-transparent via-red-500/5 to-transparent animate-shimmer-card"
+          ></div>
+        {/if}
+
+        <div class="flex items-center gap-4 relative z-[5]">
+          <div
+            class="w-16 h-16 bg-slate-50 rounded-xl flex-shrink-0 flex items-center justify-center p-2"
+          >
+            <img
+              src={item.imagenUrl || `/api/producto-imagen/${item.id}`}
+              alt=""
+              class="max-h-full object-contain"
+              on:error={(e) =>
+                ((e.currentTarget as HTMLImageElement).src =
+                  "/placeholder-image.png")}
+            />
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <h3 class="text-[10px] font-black text-slate-400 uppercase">
+                {item.modelo || "S/M"}
+              </h3>
+              {#if item.origen === "EXTERNO"}
+                <span
+                  class="bg-blue-100 text-blue-600 text-[8px] px-1.5 py-0.5 rounded-md font-black"
+                  >Bajo pedido</span
+                >
+              {/if}
+            </div>
+            <h4
+              class="text-sm font-black text-slate-800 uppercase truncate leading-tight"
+            >
+              {item.nombre}
+            </h4>
+            <p
+              class="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter"
+            >
+              {item.marca} | ID: {item.id}
+            </p>
+          </div>
+          <div class="text-right">
+            <div class="text-sm font-black text-slate-900 leading-none">
+              {GTQ.format(item.precioP || 0)}
+            </div>
+            <div
+              class="text-[10px] font-black mt-1 {item.existencia > 0
+                ? 'text-blue-600'
+                : 'text-red-300'} uppercase"
+            >
+              {Math.floor(item.existencia)} UND
+            </div>
           </div>
         </div>
       </button>
@@ -271,7 +290,8 @@
                 localStorage.removeItem("cotizacion_ofit");
                 cargarCarrito();
               }}
-              class="text-[10px] font-black uppercase">limpiar</button
+              class="text-[10px] font-black uppercase text-white/70 hover:text-white"
+              >limpiar</button
             >
           </div>
           <div class="max-h-64 overflow-y-auto p-4 space-y-3">
@@ -369,3 +389,18 @@
   existenciasPorSucursal={branchEx}
   loadingExistencias={loadEx}
 />
+
+<style>
+  @keyframes shimmer-card {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .animate-shimmer-card {
+    animation: shimmer-card 3s infinite;
+  }
+</style>
