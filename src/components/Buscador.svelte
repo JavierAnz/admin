@@ -11,12 +11,19 @@
     style: "currency",
     currency: "GTQ",
   });
+
   let busqueda = "";
   let productos: any[] = [];
   let loading = false;
   let soloMiSucursal = false;
   let timer: any;
-  let ordenamiento = "ninguno";
+
+  // NUEVA LÓGICA DE FILTROS MEZCLABLES
+  let filtros = {
+    precio: null as "asc" | "desc" | null,
+    nombre: null as "asc" | "desc" | null,
+    fecha: null as "asc" | "desc" | null,
+  };
 
   let listaCarrito: any[] = [];
   let mostrarResumen = false;
@@ -30,21 +37,50 @@
     window.addEventListener("carrito-actualizado", cargarCarrito);
   });
 
-  $: productosOrdenados = (() => {
-    if (ordenamiento === "ninguno") return productos;
-    const copia = [...productos];
-    switch (ordenamiento) {
-      case "precio-asc":
-        return copia.sort((a, b) => (a.precioA || 0) - (b.precioA || 0));
-      case "precio-desc":
-        return copia.sort((a, b) => (b.precioA || 0) - (a.precioA || 0));
-      case "nombre-asc":
-        return copia.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      case "nombre-desc":
-        return copia.sort((a, b) => b.nombre.localeCompare(a.nombre));
-      default:
-        return copia;
+  // GESTOR DE FILTROS: Valida que no se contradigan
+  function toggleFiltro(tipo: keyof typeof filtros, direccion: "asc" | "desc") {
+    if (filtros[tipo] === direccion) {
+      filtros[tipo] = null; // Desactiva si ya estaba seleccionado
+    } else {
+      filtros[tipo] = direccion; // Activa y sobrescribe la dirección opuesta
     }
+  }
+
+  function limpiarFiltros() {
+    filtros = { precio: null, nombre: null, fecha: null };
+  }
+
+  $: productosOrdenados = (() => {
+    let copia = [...productos];
+
+    // Si no hay filtros activos, retornar lista original
+    if (!filtros.precio && !filtros.nombre && !filtros.fecha) return productos;
+
+    copia.sort((a, b) => {
+      // 1. Prioridad: Precio
+      if (filtros.precio) {
+        const diff = (a.precioA || 0) - (b.precioA || 0);
+        if (diff !== 0) return filtros.precio === "asc" ? diff : -diff;
+      }
+
+      // 2. Prioridad: Fecha (Ingreso)
+      if (filtros.fecha) {
+        const dateA = new Date(a.ultimaCompra || 0).getTime();
+        const dateB = new Date(b.ultimaCompra || 0).getTime();
+        const diff = dateA - dateB;
+        if (diff !== 0) return filtros.fecha === "asc" ? diff : -diff;
+      }
+
+      // 3. Prioridad: Nombre (A-Z)
+      if (filtros.nombre) {
+        const diff = a.nombre.localeCompare(b.nombre);
+        if (diff !== 0) return filtros.nombre === "asc" ? diff : -diff;
+      }
+
+      return 0;
+    });
+
+    return copia;
   })();
 
   async function realizarBusqueda() {
@@ -131,7 +167,7 @@
           soloMiSucursal = !soloMiSucursal;
           realizarBusqueda();
         }}
-        class="flex items-center gap-2 text-[15px] font-black uppercase transition-colors {soloMiSucursal
+        class="flex items-center gap-2 text-[7px] font-black uppercase transition-colors {soloMiSucursal
           ? 'text-green-600'
           : 'text-slate-400'}"
         type="button"
@@ -164,25 +200,64 @@
           class="text-[10px] font-black text-slate-400 uppercase tracking-wider"
           >Ordenar:</span
         >
-        {#each ["ninguno", "precio-asc", "precio-desc", "nombre-asc", "nombre-desc"] as modo}
-          <button
-            on:click={() => (ordenamiento = modo)}
-            class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all {ordenamiento ===
-            modo
-              ? 'bg-[#3d3b3e] text-[#ffd312]'
-              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
-          >
-            {modo === "ninguno"
-              ? "Predeterminado"
-              : modo === "precio-asc"
-                ? "Precio ↑"
-                : modo === "precio-desc"
-                  ? "Precio ↓"
-                  : modo === "nombre-asc"
-                    ? "A-Z"
-                    : "Z-A"}
-          </button>
-        {/each}
+
+        <button
+          on:click={limpiarFiltros}
+          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all
+          {Object.values(filtros).every((v) => v === null)
+            ? 'bg-[#3d3b3e] text-[#ffd312]'
+            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
+        >
+          Predeterminado
+        </button>
+
+        <button
+          on:click={() => toggleFiltro("precio", "asc")}
+          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all
+          {filtros.precio === 'asc'
+            ? 'bg-[#3d3b3e] text-[#ffd312]'
+            : 'bg-slate-100 text-slate-500'}"
+        >
+          Precio ↑
+        </button>
+        <button
+          on:click={() => toggleFiltro("precio", "desc")}
+          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all
+          {filtros.precio === 'desc'
+            ? 'bg-[#3d3b3e] text-[#ffd312]'
+            : 'bg-slate-100 text-slate-500'}"
+        >
+          Precio ↓
+        </button>
+
+        <button
+          on:click={() => toggleFiltro("fecha", "desc")}
+          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all
+          {filtros.fecha === 'desc'
+            ? 'bg-[#3d3b3e] text-[#ffd312]'
+            : 'bg-slate-100 text-slate-500'}"
+        >
+          Más Reciente
+        </button>
+        <button
+          on:click={() => toggleFiltro("fecha", "asc")}
+          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all
+          {filtros.fecha === 'asc'
+            ? 'bg-[#3d3b3e] text-[#ffd312]'
+            : 'bg-slate-100 text-slate-500'}"
+        >
+          Más Antiguo
+        </button>
+
+        <button
+          on:click={() => toggleFiltro("nombre", "asc")}
+          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all
+          {filtros.nombre === 'asc'
+            ? 'bg-[#3d3b3e] text-[#ffd312]'
+            : 'bg-slate-100 text-slate-500'}"
+        >
+          A-Z
+        </button>
       </div>
     {/if}
   </div>
@@ -197,7 +272,6 @@
           : 'border border-slate-100 shadow-sm hover:border-[#ffd312]'}"
         on:click={() => openDetail(item)}
       >
-        <!-- Badge de OFERTA si tiene precio de oferta -->
         {#if item.precioo > 0}
           <div
             class="absolute top-2 right-2 bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase shadow-md z-10 flex items-center gap-1"
@@ -205,7 +279,6 @@
             <span>🔥</span>
             <span>OFERTA</span>
           </div>
-          <!-- Efecto de brillo sutil -->
           <div
             class="absolute inset-0 bg-gradient-to-r from-transparent via-red-500/5 to-transparent animate-shimmer-card"
           ></div>
@@ -244,7 +317,25 @@
             <p
               class="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter"
             >
-              {item.marca} | ID: {item.id}
+              {item.marca} | ID: {item.id} |
+
+              {#if item.ultimaCompra}
+                <div class="mb-3 flex items-center gap-2 flex-wrap">
+                  <span
+                    class="text-[9px] font-black text-slate-400 uppercase tracking-wider"
+                    >Último Ingreso:</span
+                  >
+                  <span
+                    class="text-[10px] font-black text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md"
+                  >
+                    {new Date(item.ultimaCompra).toLocaleDateString("es-GT", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
+              {/if}
             </p>
           </div>
           <div class="text-right">
@@ -268,7 +359,7 @@
         class="p-12 text-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200"
       >
         <p class="text-slate-500 font-black uppercase text-xs tracking-widest">
-          No se encontraron resultados para tu búsqueda.
+          No se encontraron resultados.
         </p>
       </div>
     {/if}
@@ -306,28 +397,19 @@
                     src={item.imagenUrl || `/api/producto-imagen/${item.id}`}
                     alt=""
                     class="max-h-full object-contain"
-                    on:error={(e) =>
-                      ((e.currentTarget as HTMLImageElement).src =
-                        "/placeholder-image.png")}
                   />
                 </span>
-                <span
-                  class="text-[10px] font-black uppercase text-slate-400 tracking-widest"
-                  >COD: {item.id}</span
-                >
-                <span class="text-[12px] font-bold leading-tight flex-1"
-                  >{item.modelo}
-                </span>
-                <span class="text-[10px] font-bold leading-tight flex-1"
-                  >{item.marca}
-                </span>
-
+                <div class="flex-1 flex flex-col">
+                  <span class="text-[10px] font-black text-slate-400 uppercase"
+                    >COD: {item.id}</span
+                  >
+                  <span class="text-[11px] font-bold leading-tight"
+                    >{item.modelo}</span
+                  >
+                </div>
                 <span
                   class="px-2 py-1 bg-slate-100 rounded text-[10px] font-black"
-                  >x {item.cantidad}</span
-                >
-                <span class="text-[11px] font-black text-slate-900"
-                  >{GTQ.format(item.precio * item.cantidad)}</span
+                  >x{item.cantidad}</span
                 >
                 <button
                   on:click={() => {
@@ -341,20 +423,8 @@
                 >
               </div>
             {/each}
-            <div class="flex justify-between items-center">
-              <span class="text-[12px] font-black text-slate-900">Subtotal</span
-              >
-              <span class="text-[12px] font-black text-slate-900"
-                >{GTQ.format(
-                  listaCarrito.reduce(
-                    (total, item) => total + item.precio * item.cantidad,
-                    0,
-                  ),
-                )}</span
-              >
-            </div>
           </div>
-          <div class="p-4">
+          <div class="p-4 bg-slate-50">
             <button
               on:click={enviarWhatsApp}
               class="w-full bg-[#25D366] text-white py-4 rounded-2xl font-black text-xs uppercase flex items-center justify-center gap-2"
@@ -368,11 +438,7 @@
         on:click={() => (mostrarResumen = !mostrarResumen)}
         class="bg-[#3d3b3e] text-[#ffd312] h-16 w-16 rounded-full shadow-2xl border-4 border-[#ffd312] flex items-center justify-center text-xl active:scale-90 transition-all relative"
       >
-        {#if !mostrarResumen}
-          🛒
-        {:else}
-          ✕
-        {/if}
+        {!mostrarResumen ? "🛒" : "✕"}
         <span
           class="absolute -top-1 -right-1 bg-[#e91b27] text-white text-[10px] font-black h-6 w-6 rounded-full flex items-center justify-center border-2 border-white"
         >
@@ -399,7 +465,6 @@
       transform: translateX(100%);
     }
   }
-
   .animate-shimmer-card {
     animation: shimmer-card 3s infinite;
   }

@@ -19,7 +19,7 @@ export async function getInventario() {
         let pool = await sql.connect(config);
         const result = await pool.request().query(`
     SELECT 
-        Codigo, Nombre, Marca, Modelo, [Precio P], [Precio A], Barras, [Precio O], v.Vigencia,
+        Codigo, Nombre, Marca, Modelo, [Precio P], [Precio A], Barras, [Precio O], VIGENCIA_OFERTA as Vigencia, Fech_UltimaCompra as ultimaCompra,
         (SELECT SUM(existencia) 
          FROM rel_productos_agencias r
          INNER JOIN agencias a ON r.cod_agen = a.cod_agen

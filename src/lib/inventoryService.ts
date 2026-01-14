@@ -21,6 +21,7 @@ export async function getAllInventory(): Promise<ProductoUniversal[]> {
       preciob: p['Precio B'] || p.precioB || 0,
       precioo: p['Precio O'] || p.precioo || 0,
       vigencia: p.Vigencia || p.vigencia || undefined,
+      ultimaCompra: p.ultimaCompra || undefined,
       marca: p.Marca || p.marca,
       modelo: p.Modelo || p.modelo || undefined,
       Barras: p.Barras || p.barras || undefined,

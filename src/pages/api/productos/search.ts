@@ -66,6 +66,7 @@ async function buscarLocal(queryRaw: string, agencia: string, soloLocal: boolean
                 v.[Precio P] as precioP,
                 v.[Precio A] as precioA,
                 v.[Precio O] as precioo,
+                v.ultimaCompra,
                 v.Vigencia as vigencia,
                 'PROPIO' as origen
             FROM dbo.VW_PRODUCTOS_LISTADO_WEB v WITH (NOLOCK)
@@ -74,7 +75,7 @@ async function buscarLocal(queryRaw: string, agencia: string, soloLocal: boolean
                 AND r.COD_AGEN = @agencia 
                 AND r.existencia > 0
             WHERE ${condicionesBusqueda}
-            ORDER BY v.Nombre ASC
+            ORDER BY v.ultimaCompra ASC
         `;
     } else {
         query = `
@@ -92,6 +93,8 @@ async function buscarLocal(queryRaw: string, agencia: string, soloLocal: boolean
                     v.[Precio A] as precioA,
                     v.[Precio O] as precioo,
                     v.Vigencia as vigencia,
+                    v.ultimaCompra,
+                    
                         'PROPIO' as origen
                 FROM dbo.VW_PRODUCTOS_LISTADO_WEB v WITH (NOLOCK)
                 WHERE ${condicionesBusqueda}
@@ -102,7 +105,7 @@ async function buscarLocal(queryRaw: string, agencia: string, soloLocal: boolean
                         AND r3.existencia > 0
                         AND (a2.ES_SALA_VENTAS = 1 OR a2.RECIBE_COMPRAS = 1)
                   )
-                ORDER BY v.Nombre ASC
+                ORDER BY v.ultimaCompra asc
         `;
     }
 
