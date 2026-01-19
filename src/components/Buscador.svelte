@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import ProductoDetalleModal from "./ProductoDetalleModal.svelte";
-  import Analytics from "@vercel/analytics/astro";
 
   export let idAgenciaUsuario: string | null | undefined = undefined;
   export let nombreAgencia = "";
@@ -23,6 +22,7 @@
     precio: null as "asc" | "desc" | null,
     nombre: null as "asc" | "desc" | null,
     fecha: null as "asc" | "desc" | null,
+    existencia: null as "asc" | "desc" | null,
   };
 
   let listaCarrito: any[] = [];
@@ -37,33 +37,35 @@
     window.addEventListener("carrito-actualizado", cargarCarrito);
   });
 
-  // GESTOR DE FILTROS: Valida que no se contradigan
   function toggleFiltro(tipo: keyof typeof filtros, direccion: "asc" | "desc") {
     if (filtros[tipo] === direccion) {
-      filtros[tipo] = null; // Desactiva si ya estaba seleccionado
+      filtros[tipo] = null;
     } else {
-      filtros[tipo] = direccion; // Activa y sobrescribe la dirección opuesta
+      filtros[tipo] = direccion;
     }
   }
 
   function limpiarFiltros() {
-    filtros = { precio: null, nombre: null, fecha: null };
+    filtros = { precio: null, nombre: null, fecha: null, existencia: null };
   }
 
   $: productosOrdenados = (() => {
     let copia = [...productos];
 
-    // Si no hay filtros activos, retornar lista original
-    if (!filtros.precio && !filtros.nombre && !filtros.fecha) return productos;
+    if (
+      !filtros.precio &&
+      !filtros.nombre &&
+      !filtros.fecha &&
+      !filtros.existencia
+    )
+      return productos;
 
     copia.sort((a, b) => {
-      // 1. Prioridad: Precio
       if (filtros.precio) {
         const diff = (a.precioA || 0) - (b.precioA || 0);
         if (diff !== 0) return filtros.precio === "asc" ? diff : -diff;
       }
 
-      // 2. Prioridad: Fecha (Ingreso)
       if (filtros.fecha) {
         const dateA = new Date(a.ultimaCompra || 0).getTime();
         const dateB = new Date(b.ultimaCompra || 0).getTime();
@@ -71,10 +73,14 @@
         if (diff !== 0) return filtros.fecha === "asc" ? diff : -diff;
       }
 
-      // 3. Prioridad: Nombre (A-Z)
       if (filtros.nombre) {
         const diff = a.nombre.localeCompare(b.nombre);
         if (diff !== 0) return filtros.nombre === "asc" ? diff : -diff;
+      }
+
+      if (filtros.existencia) {
+        const diff = a.existencia - b.existencia;
+        if (diff !== 0) return filtros.existencia === "asc" ? diff : -diff;
       }
 
       return 0;
@@ -123,12 +129,25 @@
     loadEx = false;
 
   async function openDetail(p: any) {
-    selProd = p;
+    mostrarResumen = false;
+
+    const pCompatible = {
+      ...p,
+      precioP:
+        p.precioPublico !== undefined ? p.precioPublico : p.precioP || p.precio,
+      precioA:
+        p.precioOferta !== undefined ? p.precioOferta : p.precioA || p.precio,
+      precioo:
+        p.precioDescuento !== undefined ? p.precioDescuento : p.precioo || 0,
+      origen: p.origen || "PROPIO",
+    };
+
+    selProd = pCompatible;
     showModal = true;
 
-    if (p.origen === "PROPIO") {
+    if (pCompatible.origen === "PROPIO") {
       loadEx = true;
-      const res = await fetch(`/api/existencias/${p.id}`);
+      const res = await fetch(`/api/existencias/${pCompatible.id}`);
       branchEx = res.ok ? await res.json() : [];
       loadEx = false;
     } else {
@@ -141,7 +160,7 @@
   <div class="flex items-center gap-2">
     <a
       href="/api/auth/logout"
-      class="fixed top-2 right-2 flex items-center gap-2 px-4 py-4 bg-red-50 text-[#e91b27] rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#e91b27] hover:text-white transition-all active:scale-95"
+      class="fixed top-2 right-2 flex items-center gap-2 px-4 py-4 bg-red-50 text-[#e91b27] rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#e91b27] hover:text-white transition-all active:scale-95 z-50"
     >
       <span>Cerrar Sesión</span>
       <span class="text-xs">✕</span>
@@ -202,16 +221,6 @@
         >
 
         <button
-          on:click={limpiarFiltros}
-          class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all
-          {Object.values(filtros).every((v) => v === null)
-            ? 'bg-[#3d3b3e] text-[#ffd312]'
-            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}"
-        >
-          Predeterminado
-        </button>
-
-        <button
           on:click={() => toggleFiltro("precio", "asc")}
           class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all
           {filtros.precio === 'asc'
@@ -240,30 +249,29 @@
           Más Reciente
         </button>
         <button
-          on:click={() => toggleFiltro("fecha", "asc")}
+          on:click={() => toggleFiltro("existencia", "desc")}
           class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all
-          {filtros.fecha === 'asc'
+          {filtros.existencia === 'desc'
             ? 'bg-[#3d3b3e] text-[#ffd312]'
             : 'bg-slate-100 text-slate-500'}"
         >
-          Más Antiguo
+          Más Stock
         </button>
-
         <button
-          on:click={() => toggleFiltro("nombre", "asc")}
+          on:click={() => toggleFiltro("existencia", "asc")}
           class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all
-          {filtros.nombre === 'asc'
+          {filtros.existencia === 'asc'
             ? 'bg-[#3d3b3e] text-[#ffd312]'
             : 'bg-slate-100 text-slate-500'}"
         >
-          A-Z
+          Menos Stock
         </button>
       </div>
     {/if}
   </div>
 
   <div class="grid grid-cols-1 gap-3">
-    {#each productosOrdenados as item}
+    {#each productosOrdenados as item (item.id)}
       <button
         type="button"
         class="bg-white p-4 rounded-2xl border transition-all cursor-pointer active:scale-95 text-left w-full relative overflow-hidden {item.precioo >
@@ -286,16 +294,19 @@
 
         <div class="flex items-center gap-4 relative z-[5]">
           <div
-            class="w-16 h-16 bg-slate-50 rounded-xl flex-shrink-0 flex items-center justify-center p-2"
+            class="w-20 h-20 bg-slate-50 rounded-xl flex-shrink-0 flex items-center justify-center p-2 overflow-hidden"
           >
-            <img
-              src={item.imagenUrl || `/api/producto-imagen/${item.id}`}
-              alt=""
-              class="max-h-full object-contain"
-              on:error={(e) =>
-                ((e.currentTarget as HTMLImageElement).src =
-                  "/placeholder-image.png")}
-            />
+            {#key item.id}
+              <img
+                src={item.imagenUrl || `/api/producto-imagen/${item.id}`}
+                alt={item.nombre}
+                class="max-h-full max-w-full object-contain"
+                loading="lazy"
+                on:error={(e) =>
+                  ((e.currentTarget as HTMLImageElement).src =
+                    "/placeholder-image.png")}
+              />
+            {/key}
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
@@ -317,24 +328,16 @@
             <p
               class="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter"
             >
-              {item.marca} | ID: {item.id} |
-
+              sku: {item.id} | {item.marca}
+            </p>
+            <p class="text-[10px] text-slate-400 font-bold mt-1 uppercase">
+              fecha de compra:
               {#if item.ultimaCompra}
-                <div class="mb-3 flex items-center gap-2 flex-wrap">
-                  <span
-                    class="text-[9px] font-black text-slate-400 uppercase tracking-wider"
-                    >Último Ingreso:</span
-                  >
-                  <span
-                    class="text-[10px] font-black text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md"
-                  >
-                    {new Date(item.ultimaCompra).toLocaleDateString("es-GT", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })}
-                  </span>
-                </div>
+                {new Date(item.ultimaCompra).toLocaleDateString("es-GT", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                })}
               {/if}
             </p>
           </div>
@@ -353,16 +356,6 @@
         </div>
       </button>
     {/each}
-
-    {#if busqueda.length >= 2 && productos.length === 0 && !loading}
-      <div
-        class="p-12 text-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200"
-      >
-        <p class="text-slate-500 font-black uppercase text-xs tracking-widest">
-          No se encontraron resultados.
-        </p>
-      </div>
-    {/if}
   </div>
 
   {#if listaCarrito.length > 0}
@@ -371,9 +364,10 @@
         <div
           class="w-72 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden mb-2 animate-in fade-in slide-in-from-bottom-4"
         >
-          <div class="p-5 bg-[#3d3b3e] flex justify-between items-center">
-            <span
-              class="text-[10px] font-black uppercase text-[#ffd312] tracking-widest"
+          <div
+            class="p-5 bg-[#3d3b3e] flex justify-between items-center text-[#ffd312]"
+          >
+            <span class="text-[10px] font-black uppercase tracking-widest"
               >Cotización</span
             >
             <button
@@ -390,15 +384,17 @@
               <div
                 class="flex justify-between items-center gap-2 pb-2 border-b border-slate-50"
               >
-                <span
-                  class="w-16 h-16 bg-slate-50 rounded-xl flex-shrink-0 flex items-center justify-center p-2"
+                <button
+                  type="button"
+                  on:click={() => openDetail(item)}
+                  class="w-16 h-16 bg-slate-50 rounded-xl flex-shrink-0 flex items-center justify-center p-2 active:scale-90 transition-all border border-slate-100"
                 >
                   <img
                     src={item.imagenUrl || `/api/producto-imagen/${item.id}`}
                     alt=""
                     class="max-h-full object-contain"
                   />
-                </span>
+                </button>
                 <div class="flex-1 flex flex-col">
                   <span class="text-[8px] font-black uppercase"
                     >COD: {item.id}</span
@@ -409,8 +405,7 @@
                   {#if item.cantidad > 1}
                     <span
                       class="text-[10px] font-black text-slate-400 uppercase"
-                    >
-                      {GTQ.format(item.precio)}</span
+                      >{GTQ.format(item.precio)}</span
                     >
                   {/if}
                 </div>

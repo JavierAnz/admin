@@ -18,54 +18,75 @@
   let tipoPrecio = "precioA";
   let precioManual = 0;
 
-  // Countdown
-  let dias = 0;
-  let horas = 0;
-  let minutos = 0;
-  let segundos = 0;
-  let interval: any;
+  // Countdown states
+  let dias = 0,
+    horas = 0,
+    minutos = 0,
+    segundos = 0;
+  let interval: any = null;
   let expirado = false;
+  let imagenAmpliada = false;
 
-  // Reactividad: Actualizar precio manual al abrir el producto
-  $: if (producto && tipoPrecio !== "manual") {
-    precioManual = producto[tipoPrecio] || 0;
+  function stopCounter() {
+    if (interval) {
+      clearInterval(interval);
+      interval = null;
+    }
   }
 
   function calcularTiempoRestante() {
     if (!producto?.vigencia) return;
 
-    try {
-      const ahora = new Date().getTime();
-      const fechaVigencia = new Date(producto.vigencia).getTime();
+    const ahora = new Date().getTime();
+    const fechaVigencia = new Date(producto.vigencia).getTime();
 
-      if (isNaN(fechaVigencia)) {
-        console.error(
-          "Error: La vigencia no tiene un formato de fecha válido",
-          producto.vigencia,
-        );
-        return;
-      }
+    if (isNaN(fechaVigencia)) return;
 
-      const diferencia = fechaVigencia - ahora;
+    const diferencia = fechaVigencia - ahora;
 
-      if (diferencia <= 0) {
-        expirado = true;
-        if (interval) {
-          clearInterval(interval);
-          interval = null;
-        }
-        return;
-      }
-
-      dias = Math.floor(diferencia / (1000 * 60 * 60 * 24));
-      horas = Math.floor(
-        (diferencia % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
-      );
-      minutos = Math.floor((diferencia % (1000 * 60 * 60)) / (1000 * 60));
-      segundos = Math.floor((diferencia % (1000 * 60)) / 1000);
-    } catch (e) {
-      console.error("Error al calcular el tiempo:", e);
+    if (diferencia <= 0) {
+      expirado = true;
+      stopCounter();
+      return;
     }
+
+    expirado = false;
+    dias = Math.floor(diferencia / (1000 * 60 * 60 * 24));
+    horas = Math.floor((diferencia % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    minutos = Math.floor((diferencia % (1000 * 60 * 60)) / (1000 * 60));
+    segundos = Math.floor((diferencia % (1000 * 60)) / 1000);
+  }
+
+  $: if (producto && tipoPrecio !== "manual") {
+    precioManual = producto[tipoPrecio] || 0;
+  }
+
+  $: if (showModal && producto?.id) {
+    $scale = 1;
+    if (typeof document !== "undefined")
+      document.body.style.overflow = "hidden";
+
+    tipoPrecio = "precioA";
+    precioManual = producto.precioA || 0;
+    expirado = false;
+    imagenAmpliada = false;
+
+    stopCounter();
+
+    const tieneOfertaValida = Number(producto.precioo) > 0;
+    if (tieneOfertaValida && producto.vigencia) {
+      calcularTiempoRestante();
+      interval = setInterval(calcularTiempoRestante, 1000);
+    }
+  } else if (!showModal) {
+    $scale = 0;
+    if (typeof document !== "undefined") document.body.style.overflow = "";
+    cantidad = 1;
+    stopCounter();
+  }
+
+  function close() {
+    showModal = false;
   }
 
   function agregarAlCarrito() {
@@ -78,26 +99,37 @@
       localStorage.getItem("cotizacion_ofit") || "[]",
     );
 
-    const nuevoItem = {
-      id: producto.id,
-      nombre: producto.nombre,
-      precio: precioFinal,
-      precioPublico: producto.precioP,
-      precioOferta: producto.precioA,
-      precioDescuento: producto.precioo,
-      tipoSeleccionado: tipoPrecio,
-      modelo: producto.modelo,
-      marca: producto.marca,
-      cantidad: cantidad,
-    };
-
-    const index = carritoActual.findIndex(
-      (i: any) => i.id === producto.id && i.precio === precioFinal,
-    );
+    // Buscamos si el producto ya está en el carrito por su ID
+    const index = carritoActual.findIndex((i: any) => i.id === producto.id);
 
     if (index !== -1) {
-      carritoActual[index].cantidad += cantidad;
+      // 1. Actualizamos el precio al seleccionado actualmente
+      carritoActual[index].precio = precioFinal;
+      carritoActual[index].tipoSeleccionado = tipoPrecio;
+
+      // 2. REEMPLAZAMOS la cantidad (en lugar de sumar)
+      // Si el usuario pone 5 en el modal, ahora habrán 5, sin importar cuántos había antes.
+      carritoActual[index].cantidad = cantidad;
+
+      // Actualizamos metadatos por si hubo cambios
+      carritoActual[index].precioOferta = producto.precioA;
+      carritoActual[index].precioDescuento = producto.precioo;
     } else {
+      // Si es nuevo, lo agregamos normal
+      const nuevoItem = {
+        id: producto.id,
+        nombre: producto.nombre,
+        precio: precioFinal,
+        precioPublico: producto.precioP,
+        precioOferta: producto.precioA,
+        precioDescuento: producto.precioo,
+        vigencia: producto.vigencia,
+        tipoSeleccionado: tipoPrecio,
+        modelo: producto.modelo,
+        marca: producto.marca,
+        cantidad: cantidad,
+        origen: producto.origen || "PROPIO",
+      };
       carritoActual.push(nuevoItem);
     }
 
@@ -106,465 +138,331 @@
     close();
   }
 
-  // Manejo de apertura/cierre del modal y el contador
-  $: if (showModal && producto) {
-    $scale = 1;
-    if (typeof document !== "undefined")
-      document.body.style.overflow = "hidden";
-
-    // Reset de estados
-    tipoPrecio = "precioA";
-    precioManual = producto.precioA || 0;
-    expirado = false;
-
-    // Limpiar intervalo anterior
-    if (interval) clearInterval(interval);
-
-    // Verificación rigurosa: precioo como número y existencia de vigencia
-    const tieneOfertaValida = Number(producto.precioo) > 0;
-
-    if (tieneOfertaValida && producto.vigencia) {
-      calcularTiempoRestante();
-      interval = setInterval(calcularTiempoRestante, 1000);
-    }
-  } else if (!showModal) {
-    $scale = 0;
-    if (typeof document !== "undefined") document.body.style.overflow = "";
-    cantidad = 1;
-    if (interval) {
-      clearInterval(interval);
-      interval = null;
-    }
-  }
-
-  function close() {
-    showModal = false;
-  }
-
   onMount(() => {
     const handleEsc = (e: KeyboardEvent) => e.key === "Escape" && close();
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   });
 
-  onDestroy(() => {
-    if (interval) clearInterval(interval);
-  });
+  onDestroy(stopCounter);
 </script>
 
 {#if showModal && producto}
-  <!-- svelte-ignore a11y_interactive_supports_focus -->
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div
-    class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-[100]"
-    role="dialog"
-    aria-modal="true"
-    on:click={close}
-  >
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="modal-overlay" role="dialog" aria-modal="true" on:click={close}>
     <div
-      class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-2xl max-h-[95vh] overflow-hidden transform relative flex flex-col"
+      class="modal-container"
       on:click|stopPropagation
       style="transform: scale({$scale})"
     >
-      <button
-        on:click={close}
-        class="absolute top-3 right-3 sm:top-4 sm:right-4 z-[110] bg-slate-100 hover:bg-red-500 hover:text-white text-slate-500 w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all shadow-md font-bold text-lg"
-        >✕</button
+      <button on:click={close} class="modal-close-btn" aria-label="Cerrar modal"
+        >×</button
       >
 
-      <div class="overflow-y-auto p-4 sm:p-6 md:p-8">
-        <!-- Product Image - Full width on mobile -->
-        <div
-          class="bg-slate-50 rounded-2xl p-4 flex items-center justify-center border border-slate-100 h-48 sm:h-64 mb-4 sm:mb-0"
-        >
-          <img
-            src={`/api/producto-imagen/${producto.id}`}
-            alt={producto.nombre}
-            class="max-h-full w-auto object-contain drop-shadow-xl"
-            on:error={(e) =>
-              ((e.currentTarget as HTMLImageElement).src = "/favicon.svg")}
-          />
-        </div>
-
-        <!-- Product Info -->
-        <div class="flex flex-col mt-4">
-          <h2
-            class="text-lg sm:text-xl font-black text-slate-800 leading-tight mb-2 pr-10"
+      <div class="modal-content">
+        <div class="p-4 pb-6">
+          <div
+            class="imagen-container"
+            on:click={() => (imagenAmpliada = !imagenAmpliada)}
           >
-            {producto.nombre}
-          </h2>
-
-          {#if producto.ultimaCompra}
-            <div class="mb-3 flex items-center gap-2 flex-wrap">
-              <span
-                class="text-[9px] font-black text-slate-400 uppercase tracking-wider"
-                >Último Ingreso:</span
-              >
-              <span
-                class="text-[10px] font-black text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md"
-              >
-                {new Date(producto.ultimaCompra).toLocaleDateString("es-GT", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                })}
-              </span>
-            </div>
-          {/if}
-
-          <div class="flex flex-wrap gap-2 mb-4">
-            <span
-              class="px-2 py-1 bg-slate-100 text-slate-500 text-[10px] font-bold rounded uppercase"
-              >ID: {producto.id}</span
-            >
-            <span
-              class="px-2 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded uppercase"
-              >{producto.modelo || "S/M"}</span
-            >
-            <span
-              class="px-2 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded uppercase"
-              >{producto.marca || "S/M"}</span
-            >
+            <img
+              src={`/api/producto-imagen/${producto.id}`}
+              alt={producto.nombre}
+              class="imagen-producto"
+              on:error={(e) => (e.currentTarget.src = "/favicon.svg")}
+            />
           </div>
 
-          <!-- Price Options - Improved spacing and touch targets -->
-          <div class="space-y-2 mb-4">
-            <button
-              class="w-full p-3 sm:p-3.5 rounded-xl border transition-all flex justify-between items-center touch-manipulation {tipoPrecio ===
-              'precioP'
-                ? 'border-[#ffd312] bg-[#ffd312]/5 ring-2 ring-[#ffd312]'
-                : 'border-slate-100 bg-slate-50'}"
-              on:click={() => (tipoPrecio = "precioP")}
-            >
-              <div class="flex items-center gap-2 sm:gap-3">
-                <div
-                  class="h-5 w-5 sm:h-4 sm:w-4 rounded-full border-2 border-slate-300 flex items-center justify-center {tipoPrecio ===
-                  'precioP'
-                    ? 'border-[#ffd312]'
-                    : ''}"
-                >
-                  {#if tipoPrecio === "precioP"}<div
-                      class="h-2.5 w-2.5 sm:h-2 sm:w-2 bg-[#ffd312] rounded-full"
-                    ></div>{/if}
-                </div>
-                <span
-                  class="text-[10px] sm:text-[9px] font-bold text-slate-400 uppercase"
-                  >{Number(producto.precioo) > 0
-                    ? "Precio Anterior"
-                    : "Normal"}</span
-                >
-              </div>
-              <span class="text-sm sm:text-base font-bold text-slate-900"
-                >{GTQ.format(producto.precioP || 0)}</span
+          <div class="flex flex-col">
+            <h2 class="text-sm font-black text-slate-800 mb-3">
+              {producto.nombre}
+            </h2>
+
+            <div class="flex flex-wrap gap-1.5 mb-3">
+              <span
+                class="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] font-bold rounded uppercase"
               >
-            </button>
-
-            <button
-              class="w-full p-3 sm:p-3.5 rounded-xl border transition-all flex justify-between items-center touch-manipulation {tipoPrecio ===
-              'precioA'
-                ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500'
-                : 'border-slate-100 bg-slate-50'}"
-              on:click={() => (tipoPrecio = "precioA")}
-            >
-              <div class="flex items-center gap-2 sm:gap-3">
-                <div
-                  class="h-5 w-5 sm:h-4 sm:w-4 rounded-full border-2 border-slate-300 flex items-center justify-center {tipoPrecio ===
-                  'precioA'
-                    ? 'border-emerald-500'
-                    : ''}"
-                >
-                  {#if tipoPrecio === "precioA"}<div
-                      class="h-2.5 w-2.5 sm:h-2 sm:w-2 bg-emerald-500 rounded-full"
-                    ></div>{/if}
-                </div>
-
-                {#if Number(producto.precioo) > 0}
-                  <span
-                    class="text-[10px] sm:text-[9px] font-bold text-slate-400 uppercase"
-                    >Oferta - Precio Aplica a cuotas</span
-                  >
-                {:else}
-                  <span
-                    class="text-[10px] sm:text-[9px] font-bold text-slate-400 uppercase"
-                    >Efectivo/Transferencia</span
-                  >
-                {/if}
-              </div>
-              <span class="text-sm sm:text-base font-black text-emerald-700"
-                >{GTQ.format(producto.precioA || 0)}</span
+                ID: {producto.id}
+              </span>
+              <span
+                class="px-2 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-bold rounded uppercase"
               >
-            </button>
+                {producto.modelo || "S/M"}
+              </span>
+              <span
+                class="px-2 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-bold rounded uppercase"
+              >
+                {producto.marca || "S/M"}
+              </span>
+            </div>
 
-            {#if Number(producto.precioo) > 0}
+            <div class="space-y-1.5 mb-3">
               <button
-                class="w-full p-3 sm:p-4 rounded-xl border-2 transition-all flex justify-between items-center relative overflow-hidden touch-manipulation {tipoPrecio ===
-                'precioo'
-                  ? 'border-red-500 bg-gradient-to-r from-red-500 to-orange-500 ring-4 ring-red-300 shadow-lg shadow-red-500/50'
-                  : 'border-red-400 bg-gradient-to-r from-red-50 to-orange-50'}"
-                on:click={() => (tipoPrecio = "precioo")}
+                type="button"
+                class="w-full p-2.5 rounded-lg border flex justify-between items-center {tipoPrecio ===
+                'precioP'
+                  ? 'border-[#ffd312] bg-[#ffd312]/5 ring-1 ring-[#ffd312]'
+                  : 'border-slate-200 bg-slate-50'}"
+                on:click={() => (tipoPrecio = "precioP")}
               >
-                <div class="flex items-center gap-2 sm:gap-3 relative z-10">
-                  <div
-                    class="h-5 w-5 rounded-full border-2 flex items-center justify-center {tipoPrecio ===
-                    'precioo'
-                      ? 'border-white bg-white'
-                      : 'border-red-500 bg-red-100'}"
-                  >
-                    {#if tipoPrecio === "precioo"}<div
-                        class="h-2.5 w-2.5 bg-red-600 rounded-full"
-                      ></div>{/if}
-                  </div>
-                  <span
-                    class="text-xs sm:text-sm font-black uppercase {tipoPrecio ===
-                    'precioo'
-                      ? 'text-white'
-                      : 'text-red-600'}">🔥 OFERTA</span
-                  >
-                </div>
-                <div class="flex flex-col items-end relative z-10">
-                  <span
-                    class="text-lg sm:text-xl font-black {tipoPrecio ===
-                    'precioo'
-                      ? 'text-white'
-                      : 'text-red-600'}"
-                    >{GTQ.format(producto.precioo || 0)}</span
-                  >
-                </div>
+                <span class="text-[9px] font-bold text-slate-400 uppercase">
+                  {Number(producto.precioo) > 0 ? "Normal" : "P. Público"}
+                </span>
+                <span class="text-sm font-bold text-slate-900">
+                  {GTQ.format(producto.precioP || 0)}
+                </span>
               </button>
+
+              <button
+                type="button"
+                class="w-full p-2.5 rounded-lg border flex justify-between items-center {tipoPrecio ===
+                'precioA'
+                  ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500'
+                  : 'border-slate-200 bg-slate-50'}"
+                on:click={() => (tipoPrecio = "precioA")}
+              >
+                <span class="text-[9px] font-bold text-slate-400 uppercase"
+                  >Efectivo/Transfer</span
+                >
+                <span class="text-sm font-black text-emerald-700">
+                  {GTQ.format(producto.precioA || 0)}
+                </span>
+              </button>
+
+              {#if Number(producto.precioo) > 0}
+                <button
+                  type="button"
+                  class="w-full p-2.5 rounded-lg border-2 flex justify-between items-center {tipoPrecio ===
+                  'precioo'
+                    ? 'border-red-500 bg-gradient-to-r from-red-500 to-orange-500 ring-2 ring-red-300 shadow-md text-white'
+                    : 'border-red-400 bg-red-50 text-red-600'}"
+                  on:click={() => (tipoPrecio = "precioo")}
+                >
+                  <span class="text-[10px] font-black uppercase">🔥 OFERTA</span
+                  >
+                  <span class="text-base font-black">
+                    {GTQ.format(producto.precioo || 0)}
+                  </span>
+                </button>
+              {/if}
+            </div>
+
+            {#if Number(producto.precioo) > 0 && producto.vigencia && !expirado}
+              <div
+                class="w-full bg-gradient-to-r from-red-600 to-orange-500 rounded-lg p-2 shadow-inner mb-3 flex items-center justify-center gap-2"
+              >
+                <span
+                  class="text-white text-[9px] font-bold uppercase tracking-tighter"
+                  >Termina en:</span
+                >
+                <div class="flex gap-1 items-center">
+                  {#if dias > 0}
+                    <div
+                      class="bg-black/20 px-1.5 py-0.5 rounded text-white text-xs font-black tabular-nums"
+                    >
+                      {dias}d
+                    </div>
+                  {/if}
+                  <div
+                    class="bg-black/20 px-1.5 py-0.5 rounded text-white text-xs font-black tabular-nums"
+                  >
+                    {horas.toString().padStart(2, "0")}:{minutos
+                      .toString()
+                      .padStart(2, "0")}:<span
+                      class="animate-count inline-block"
+                      >{segundos.toString().padStart(2, "0")}</span
+                    >
+                  </div>
+                </div>
+              </div>
             {/if}
 
-            <div
-              class="p-3 rounded-xl border transition-all {tipoPrecio ===
-              'manual'
-                ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
-                : 'border-slate-100 bg-slate-50'}"
-            >
-              <button
-                class="w-full flex justify-between items-center mb-2 touch-manipulation"
-                on:click={() => (tipoPrecio = "manual")}
+            <div class="border-t border-slate-100 pt-3">
+              <h3
+                class="text-[9px] font-black text-slate-400 uppercase mb-2 flex items-center gap-1.5"
               >
-                <div class="flex items-center gap-2 sm:gap-3">
-                  <div
-                    class="h-5 w-5 sm:h-4 sm:w-4 rounded-full border-2 border-slate-300 flex items-center justify-center {tipoPrecio ===
-                    'manual'
-                      ? 'border-blue-500'
-                      : ''}"
-                  >
-                    {#if tipoPrecio === "manual"}<div
-                        class="h-2.5 w-2.5 sm:h-2 sm:w-2 bg-blue-500 rounded-full"
-                      ></div>{/if}
-                  </div>
-                  <span
-                    class="text-[10px] sm:text-[9px] font-black text-blue-500 uppercase"
-                    >Personalizado</span
-                  >
+                <span class="w-1.5 h-1.5 bg-blue-500 rounded-full"></span> Stock
+                por Agencia
+              </h3>
+              {#if loadingExistencias}
+                <div class="animate-pulse h-8 bg-slate-100 rounded-lg"></div>
+              {:else if existenciasPorSucursal.length > 0}
+                <div class="grid grid-cols-2 gap-1.5">
+                  {#each existenciasPorSucursal as suc}
+                    <div
+                      class="flex justify-between items-center p-2 bg-white border border-slate-100 rounded-lg shadow-sm"
+                    >
+                      <span
+                        class="text-[9px] font-bold text-slate-600 uppercase truncate"
+                        >{suc.ubicacion}</span
+                      >
+                      <span class="text-xs font-black text-blue-700"
+                        >{Math.floor(suc.existencia)}</span
+                      >
+                    </div>
+                  {/each}
                 </div>
-              </button>
-              {#if tipoPrecio === "manual"}
-                <div class="relative mt-2">
-                  <span
-                    class="absolute left-3 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-base sm:text-lg"
-                    >Q</span
-                  >
-                  <input
-                    type="number"
-                    bind:value={precioManual}
-                    class="w-full sm:w-[140px] pl-8 pr-4 py-2.5 sm:py-2 bg-white border border-blue-200 rounded-lg text-base sm:text-lg font-black text-blue-700 outline-none focus:ring-2 focus:ring-blue-400"
-                  />
-                </div>
+              {:else}
+                <p class="text-center text-slate-400 italic text-[10px] py-2">
+                  Sin existencias registradas.
+                </p>
               {/if}
             </div>
           </div>
-
-          <!-- Countdown Timer -->
-          {#if Number(producto.precioo) > 0 && producto.vigencia && !expirado}
-            <div
-              class="mb-4 w-full bg-gradient-to-r from-red-500 to-orange-500 rounded-xl p-3 sm:p-4 shadow-lg relative overflow-hidden"
-            >
-              <div
-                class="absolute inset-0 bg-white/10 animate-pulse-slow"
-              ></div>
-              <div class="relative z-10">
-                <div class="flex items-center justify-center gap-2 mb-2">
-                  <span
-                    class="text-white text-[10px] sm:text-xs font-black uppercase tracking-wider"
-                    >⏰ Oferta termina en:</span
-                  >
-                </div>
-
-                <div class="flex justify-center gap-1 sm:gap-2">
-                  {#if dias > 0}
-                    <div
-                      class="flex flex-col items-center bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1 min-w-[40px] sm:min-w-[48px]"
-                    >
-                      <span
-                        class="text-base sm:text-lg font-black text-white tabular-nums"
-                        >{dias.toString().padStart(2, "0")}</span
-                      >
-                      <span
-                        class="text-[7px] sm:text-[8px] font-bold text-white/80 uppercase"
-                        >Días</span
-                      >
-                    </div>
-                  {/if}
-
-                  <div
-                    class="flex flex-col items-center bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1 min-w-[40px] sm:min-w-[48px]"
-                  >
-                    <span
-                      class="text-base sm:text-lg font-black text-white tabular-nums"
-                      >{horas.toString().padStart(2, "0")}</span
-                    >
-                    <span
-                      class="text-[7px] sm:text-[8px] font-bold text-white/80 uppercase"
-                      >Hrs</span
-                    >
-                  </div>
-
-                  <span
-                    class="text-base sm:text-lg font-black text-white self-center animate-blink"
-                    >:</span
-                  >
-
-                  <div
-                    class="flex flex-col items-center bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1 min-w-[40px] sm:min-w-[48px]"
-                  >
-                    <span
-                      class="text-base sm:text-lg font-black text-white tabular-nums"
-                      >{minutos.toString().padStart(2, "0")}</span
-                    >
-                    <span
-                      class="text-[7px] sm:text-[8px] font-bold text-white/80 uppercase"
-                      >Min</span
-                    >
-                  </div>
-
-                  <span
-                    class="text-base sm:text-lg font-black text-white self-center animate-blink"
-                    >:</span
-                  >
-
-                  <div
-                    class="flex flex-col items-center bg-white/20 backdrop-blur-sm rounded-lg px-2 py-1 min-w-[40px] sm:min-w-[48px]"
-                  >
-                    <span
-                      class="text-base sm:text-lg font-black text-white tabular-nums animate-count"
-                      >{segundos.toString().padStart(2, "0")}</span
-                    >
-                    <span
-                      class="text-[7px] sm:text-[8px] font-bold text-white/80 uppercase"
-                      >Seg</span
-                    >
-                  </div>
-                </div>
-              </div>
-            </div>
-          {/if}
-
-          <!-- Add to Cart Section - Improved mobile layout -->
-          <div class="flex gap-2 p-2 bg-slate-900 rounded-2xl mb-4">
-            <div class="flex flex-col items-center px-2 sm:px-3">
-              <span class="text-[8px] text-white/50 font-bold uppercase mb-1"
-                >Cant.</span
-              >
-              <input
-                type="number"
-                bind:value={cantidad}
-                min="1"
-                class="w-14 sm:w-16 bg-white/10 text-white font-black text-center rounded-xl outline-none py-2 text-base"
-              />
-            </div>
-            <button
-              on:click={agregarAlCarrito}
-              class="flex-1 bg-[#ffd312] text-[#3d3b3e] font-black uppercase text-xs sm:text-[10px] py-3 sm:py-4 rounded-xl tracking-widest hover:bg-white transition-colors touch-manipulation active:scale-95"
-            >
-              Agregar a Cotización
-            </button>
-          </div>
         </div>
+      </div>
 
-        <!-- Stock Section -->
-        <div class="border-t border-slate-100 pt-4">
-          <h3
-            class="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2"
+      <div class="modal-footer">
+        <div class="flex gap-2 p-2 bg-slate-900 rounded-xl">
+          <div class="flex flex-col items-center px-2">
+            <span class="text-[8px] text-white/50 font-bold uppercase mb-0.5"
+              >Cant.</span
+            >
+            <input
+              type="number"
+              bind:value={cantidad}
+              min="1"
+              class="w-12 bg-white/10 text-white font-black text-center rounded-lg py-1.5 text-sm outline-none"
+            />
+          </div>
+          <button
+            type="button"
+            on:click={agregarAlCarrito}
+            class="flex-1 bg-[#ffd312] text-[#3d3b3e] font-black uppercase text-[10px] py-2.5 rounded-lg active:scale-95 transition-transform"
           >
-            <span class="w-2 h-2 bg-blue-500 rounded-full"></span> Stock por Agencia
-          </h3>
-          {#if loadingExistencias}
-            <div class="animate-pulse h-10 bg-slate-100 rounded-xl"></div>
-          {:else if existenciasPorSucursal.length > 0}
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {#each existenciasPorSucursal as suc}
-                <div
-                  class="flex justify-between items-center p-3 bg-white border border-slate-100 rounded-xl shadow-sm"
-                >
-                  <span class="text-[11px] font-bold text-slate-600 uppercase"
-                    >{suc.ubicacion}</span
-                  >
-                  <span class="text-sm font-black text-blue-700"
-                    >{Math.floor(suc.existencia)}</span
-                  >
-                </div>
-              {/each}
-            </div>
-          {:else}
-            <p class="text-center text-slate-400 italic text-xs py-4">
-              Sin existencias registradas.
-            </p>
-          {/if}
+            Agregar a Cotización
+          </button>
         </div>
       </div>
     </div>
   </div>
+
+  {#if imagenAmpliada}
+    <div class="imagen-overlay" on:click={() => (imagenAmpliada = false)}>
+      <img
+        src={`/api/producto-imagen/${producto.id}`}
+        alt={producto.nombre}
+        class="imagen-ampliada"
+        on:error={(e) => (e.currentTarget.src = "/favicon.svg")}
+      />
+    </div>
+  {/if}
 {/if}
 
 <style>
-  @keyframes blink {
-    0%,
-    49% {
-      opacity: 1;
-    }
-    50%,
-    100% {
-      opacity: 0.3;
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .modal-container {
+    background-color: white;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  @media (min-width: 640px) {
+    .modal-container {
+      height: auto;
+      border-radius: 1rem;
+      max-width: 42rem;
+      max-height: 90vh;
     }
   }
-  @keyframes pulse-slow {
-    0%,
-    100% {
-      opacity: 0.1;
-    }
-    50% {
-      opacity: 0.2;
-    }
+
+  .modal-close-btn {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 9999;
+    background-color: rgb(241, 245, 249);
+    color: rgb(100, 116, 139);
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
   }
-  @keyframes count {
-    0% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.05);
-    }
-    100% {
-      transform: scale(1);
-    }
+
+  .modal-content {
+    overflow-y: auto;
+    flex: 1;
+    overscroll-behavior: contain;
   }
-  .animate-blink {
-    animation: blink 1s infinite;
+
+  .modal-footer {
+    position: sticky;
+    bottom: 0;
+    background-color: white;
+    border-top: 1px solid rgb(241, 245, 249);
+    padding: 0.75rem;
   }
-  .animate-pulse-slow {
-    animation: pulse-slow 2s infinite;
-  }
+
   .animate-count {
     animation: count 1s infinite;
   }
+
+  @keyframes count {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.1);
+    }
+  }
+
   .tabular-nums {
     font-variant-numeric: tabular-nums;
   }
 
-  /* Better scrolling on iOS */
-  .overflow-y-auto {
-    -webkit-overflow-scrolling: touch;
+  .imagen-container {
+    background-color: rgb(248, 250, 252);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 9rem;
+    margin-bottom: 0.75rem;
+    cursor: zoom-in;
+  }
+
+  .imagen-producto {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+  }
+
+  .imagen-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background-color: rgba(0, 0, 0, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+  }
+
+  .imagen-ampliada {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
   }
 </style>
