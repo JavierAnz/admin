@@ -27,6 +27,14 @@
   let expirado = false;
   let imagenAmpliada = false;
 
+  // ✨ NUEVA FUNCIÓN: Genera URLs optimizadas
+  function getImageUrl(
+    productId: string | number,
+    size: "small" | "medium" | "large" = "medium",
+  ) {
+    return `/api/producto-imagen/${productId}?size=${size}`;
+  }
+
   function stopCounter() {
     if (interval) {
       clearInterval(interval);
@@ -171,12 +179,20 @@
 
       <div class="modal-content">
         <div class="p-4 pb-6">
+          <!-- ✨ CAMBIO 1: Imagen del modal con srcset y size medium -->
           <button type="button" class="imagen-container w-full border-0">
             <img
               on:click={() => (imagenAmpliada = !imagenAmpliada)}
-              src={`/api/producto-imagen/${producto.id}`}
+              src={getImageUrl(producto.id, "medium")}
+              srcset="{getImageUrl(producto.id, 'small')} 300w,
+                      {getImageUrl(producto.id, 'medium')} 600w"
+              sizes="(max-width: 640px) 300px, 600px"
               alt={producto.nombre}
               class="imagen-producto"
+              loading="eager"
+              decoding="async"
+              width="600"
+              height="600"
               on:error={handleImageError}
             />
           </button>
@@ -346,6 +362,7 @@
   </div>
 
   {#if imagenAmpliada}
+    <!-- ✨ CAMBIO 2: Imagen ampliada en tamaño LARGE (1200x1200) -->
     <div
       class="imagen-overlay"
       role="button"
@@ -354,9 +371,14 @@
       on:keydown={(e) => e.key === "Escape" && (imagenAmpliada = false)}
     >
       <img
-        src={`/api/producto-imagen/${producto.id}`}
+        src={getImageUrl(producto.id, "large")}
+        srcset="{getImageUrl(producto.id, 'medium')} 600w,
+                {getImageUrl(producto.id, 'large')} 1200w"
+        sizes="90vw"
         alt={producto.nombre}
         class="imagen-ampliada"
+        loading="eager"
+        decoding="async"
         on:error={handleImageError}
       />
     </div>

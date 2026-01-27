@@ -28,6 +28,14 @@
   let listaCarrito: any[] = [];
   let mostrarResumen = false;
 
+  // ✨ NUEVA FUNCIÓN: Genera URL de imagen optimizada con srcset
+  function getImageUrl(
+    productId: string | number,
+    size: "thumb" | "small" | "medium" = "small",
+  ) {
+    return `/api/producto-imagen/${productId}?size=${size}`;
+  }
+
   function cargarCarrito() {
     listaCarrito = JSON.parse(localStorage.getItem("cotizacion_ofit") || "[]");
   }
@@ -143,7 +151,7 @@
     };
 
     selProd = pCompatible;
-    branchEx = []; // Limpiar existencias anteriores
+    branchEx = [];
     showModal = true;
 
     if (pCompatible.origen === "PROPIO") {
@@ -300,15 +308,22 @@
         {/if}
 
         <div class="flex items-center gap-4 relative z-[5]">
+          <!-- ✨ CAMBIO 1: Imagen con srcset responsivo y optimizaciones -->
           <div
             class="w-20 h-20 bg-slate-50 rounded-xl flex-shrink-0 flex items-center justify-center p-2 overflow-hidden"
           >
             {#key item.id}
               <img
-                src={item.imagenUrl || `/api/producto-imagen/${item.id}`}
+                src={item.imagenUrl || getImageUrl(item.id, "thumb")}
+                srcset="{item.imagenUrl || getImageUrl(item.id, 'thumb')} 150w,
+                        {item.imagenUrl || getImageUrl(item.id, 'small')} 300w"
+                sizes="80px"
                 alt={item.nombre}
                 class="max-h-full max-w-full object-contain"
                 loading="lazy"
+                decoding="async"
+                width="80"
+                height="80"
                 on:error={(e) =>
                   ((e.currentTarget as HTMLImageElement).src =
                     "/placeholder-image.png")}
@@ -391,15 +406,20 @@
               <div
                 class="flex justify-between items-center gap-2 pb-2 border-b border-slate-50"
               >
+                <!-- ✨ CAMBIO 2: Imagen del carrito optimizada -->
                 <button
                   type="button"
                   on:click={() => openDetail(item)}
                   class="w-16 h-16 bg-slate-50 rounded-xl flex-shrink-0 flex items-center justify-center p-2 active:scale-90 transition-all border border-slate-100"
                 >
                   <img
-                    src={item.imagenUrl || `/api/producto-imagen/${item.id}`}
+                    src={item.imagenUrl || getImageUrl(item.id, "thumb")}
                     alt=""
                     class="max-h-full object-contain"
+                    loading="lazy"
+                    decoding="async"
+                    width="64"
+                    height="64"
                   />
                 </button>
                 <div class="flex-1 flex flex-col">
