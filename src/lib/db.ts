@@ -6,12 +6,13 @@ const config: sql.config = {
     password: import.meta.env.sqlpassword,
     server: import.meta.env.sqlserver,
     database: import.meta.env.sqldatabase,
-    // Si no hay puerto en el .env, mssql usa 1433 por defecto
     port: Number(import.meta.env.sqlport) || 1433,
     options: {
         encrypt: false, // En local suele ser false, en Vercel será true
         trustServerCertificate: true,
-        connectTimeout: 30000
+        connectTimeout: 30000,
+        // Agregamos instanceName si existe en el env
+        ...(import.meta.env.instanceName ? { instanceName: import.meta.env.instanceName } : {})
     }
 };
 

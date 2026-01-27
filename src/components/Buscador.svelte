@@ -143,13 +143,20 @@
     };
 
     selProd = pCompatible;
+    branchEx = []; // Limpiar existencias anteriores
     showModal = true;
 
     if (pCompatible.origen === "PROPIO") {
       loadEx = true;
-      const res = await fetch(`/api/existencias/${pCompatible.id}`);
-      branchEx = res.ok ? await res.json() : [];
-      loadEx = false;
+      try {
+        const res = await fetch(`/api/existencias/${pCompatible.id}`);
+        branchEx = res.ok ? await res.json() : [];
+      } catch (e) {
+        console.error("Error al cargar existencias:", e);
+        branchEx = [];
+      } finally {
+        loadEx = false;
+      }
     } else {
       branchEx = [];
     }

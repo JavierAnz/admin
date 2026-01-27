@@ -1,22 +1,12 @@
 import type { APIRoute } from 'astro';
 import sql from 'mssql';
 
-const config = {
-  user: import.meta.env.sqluser,
-  password: import.meta.env.sqlpassword,
-  server: import.meta.env.sqlserver,
-  database: import.meta.env.sqldatabase,
-  options: {
-    instanceName: import.meta.env.instanceName,
-    encrypt: true,
-    trustServerCertificate: true
-  }
-};
+import { getConnection } from '../../../lib/sql';
 
 export const GET: APIRoute = async ({ params }) => {
   const productId = params.id;
   try {
-    let pool = await sql.connect(config);
+    const pool = await getConnection();
 
     const result = await pool.request()
       .input('cod_prod', sql.VarChar, productId) // VarChar para evitar errores de conversión

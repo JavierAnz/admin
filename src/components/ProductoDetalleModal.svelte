@@ -34,6 +34,11 @@
     }
   }
 
+  function handleImageError(e: Event) {
+    const target = e.currentTarget as HTMLImageElement;
+    target.src = "/favicon.svg";
+  }
+
   function calcularTiempoRestante() {
     if (!producto?.vigencia) return;
 
@@ -148,9 +153,20 @@
 </script>
 
 {#if showModal && producto}
-  <div class="modal-overlay" role="dialog" aria-modal="true" on:click={close}>
+  <!-- svelte-ignore a11y_interactive_supports_focus -->
+  <div
+    class="modal-overlay"
+    role="dialog"
+    aria-modal="true"
+    on:click={close}
+    on:keydown={(e) => e.key === "Escape" && close()}
+    tabindex="-1"
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
       class="modal-container"
+      role="document"
       on:click|stopPropagation
       style="transform: scale({$scale})"
     >
@@ -160,17 +176,18 @@
 
       <div class="modal-content">
         <div class="p-4 pb-6">
-          <div
-            class="imagen-container"
+          <button
+            type="button"
+            class="imagen-container w-full border-0"
             on:click={() => (imagenAmpliada = !imagenAmpliada)}
           >
             <img
               src={`/api/producto-imagen/${producto.id}`}
               alt={producto.nombre}
               class="imagen-producto"
-              on:error={(e) => (e.currentTarget.src = "/favicon.svg")}
+              on:error={handleImageError}
             />
-          </div>
+          </button>
 
           <div class="flex flex-col">
             <h2 class="text-sm font-black text-slate-800 mb-3">
@@ -337,12 +354,18 @@
   </div>
 
   {#if imagenAmpliada}
-    <div class="imagen-overlay" on:click={() => (imagenAmpliada = false)}>
+    <div
+      class="imagen-overlay"
+      role="button"
+      tabindex="0"
+      on:click={() => (imagenAmpliada = false)}
+      on:keydown={(e) => e.key === "Escape" && (imagenAmpliada = false)}
+    >
       <img
         src={`/api/producto-imagen/${producto.id}`}
         alt={producto.nombre}
         class="imagen-ampliada"
-        on:error={(e) => (e.currentTarget.src = "/favicon.svg")}
+        on:error={handleImageError}
       />
     </div>
   {/if}

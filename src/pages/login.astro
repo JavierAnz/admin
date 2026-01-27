@@ -1,7 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
 
-// URL messages
 const url = Astro.url;
 const loginError = url.searchParams.get("error");
 const loginSuccess = url.searchParams.get("success");
@@ -9,66 +8,49 @@ const loginSuccess = url.searchParams.get("success");
 
 <Layout title="Acceso | OFIT">
   <main
-    class="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#3d3b3e] via-[#4a4749] to-[#3d3b3e] p-3 font-sans"
+    class="min-h-screen flex items-center justify-center bg-[#3d3b3e] p-6 font-sans"
   >
-    <div class="w-full max-w-md">
-      <!-- Logo (más liviano en móvil) -->
-      <div class="flex flex-col items-center mb-4">
-        <img
-          src="/logo.png"
-          alt="OFIT Logo"
-          class="h-auto w-28 rounded-lg shadow-2xl"
-          loading="eager"
-          decoding="async"
-          fetchpriority="high"
-        />
-        <div class="h-1 w-14 bg-[#e91b27] mt-2 rounded-full"></div>
+    <div class="w-full max-w-[380px] animate-entrance">
+      <div class="flex flex-col items-center mb-8">
+        <div class="bg-[#ffd312] p-4 rounded-2xl shadow-lg">
+          <img
+            src="/logo.png"
+            alt="OFIT Logo"
+            class="h-10 w-auto"
+            loading="eager"
+          />
+        </div>
+        <div class="h-1.5 w-10 bg-[#e91b27] mt-4 rounded-full shadow-sm"></div>
       </div>
 
       <div
-        class="bg-white rounded-3xl shadow-2xl overflow-hidden border-b-8 border-[#ffd312]"
+        class="bg-white rounded-[2rem] shadow-2xl overflow-hidden border-b-[10px] border-[#ffd312] flex flex-col"
       >
         {
-          loginError && (
+          (loginError || loginSuccess) && (
             <div
-              class="bg-amber-50 border-l-4 border-amber-500 text-amber-800 px-4 py-3 text-sm"
-              role="alert"
-              aria-live="polite"
+              class={`${loginError ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"} px-6 py-3 text-[10px] font-black uppercase tracking-widest border-b border-slate-100`}
             >
-              <span class="font-semibold">
-                {loginError === "invalid"
-                  ? "Credenciales inválidas"
-                  : "Error al iniciar sesión"}
-              </span>
+              {loginError
+                ? "⚠️ Error de acceso"
+                : loginSuccess
+                  ? "✅ Sesión finalizada"
+                  : "Sesión Cerrada"}
             </div>
           )
         }
 
-        {
-          loginSuccess && (
-            <div
-              class="bg-green-50 border-l-4 border-green-500 text-green-800 px-4 py-3 text-sm"
-              role="alert"
-              aria-live="polite"
-            >
-              <span class="font-semibold">{loginSuccess}</span>
-            </div>
-          )
-        }
-
-        <div class="p-5">
+        <div class="p-6 space-y-5">
           <form
             action="/api/auth/login"
             method="POST"
-            class="space-y-3"
+            class="space-y-5"
             id="loginForm"
-            autocomplete="on"
           >
-            <!-- Usuario -->
-            <div>
+            <div class="flex flex-col space-y-1.5">
               <label
                 for="nick"
-                class="block text-xs font-bold text-slate-600 mb-1.5"
+                class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2"
               >
                 Usuario
               </label>
@@ -77,44 +59,36 @@ const loginSuccess = url.searchParams.get("success");
                 id="nick"
                 name="nick"
                 required
-                autocomplete="username"
-                inputmode="text"
-                enterkeyhint="next"
-                autocapitalize="none"
-                autocorrect="off"
-                spellcheck="false"
-                class="w-auto px-4 py-3.5 text-base bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-[#e91b27] focus:ring-2 focus:ring-[#e91b27] focus:ring-opacity-20 transition-all outline-none"
-                placeholder="Usuario"
+                class="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-[#3d3b3e] focus:bg-white transition-all outline-none text-slate-800 font-bold"
+                placeholder="Nombre de usuario"
               />
             </div>
 
-            <!-- Contraseña -->
-            <div>
+            <div class="flex flex-col space-y-1.5">
               <label
                 for="pass"
-                class="block text-xs font-bold text-slate-600 mb-1.5"
+                class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2"
               >
                 Contraseña
               </label>
-              <div class="relative">
+              <div
+                class="flex items-center bg-slate-50 border-2 border-slate-100 rounded-2xl focus-within:border-[#3d3b3e] focus-within:bg-white transition-all overflow-hidden"
+              >
                 <input
                   type="password"
                   id="pass"
                   name="pass"
                   required
-                  autocomplete="current-password"
-                  enterkeyhint="go"
-                  class="w-auto px-4 py-3.5 text-base bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-[#e91b27] focus:ring-2 focus:ring-[#e91b27] focus:ring-opacity-20 transition-all outline-none pr-14"
-                  placeholder="Contraseña"
+                  class="flex-1 px-5 py-4 bg-transparent outline-none text-slate-800 font-bold min-w-0"
+                  placeholder="••••••••"
                 />
                 <button
                   type="button"
                   id="togglePassword"
-                  class="absolute right-16 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 p-3 touch-manipulation"
-                  aria-label="Mostrar contraseña"
+                  class="px-4 text-slate-400 hover:text-[#3d3b3e] transition-colors border-l border-slate-200"
                 >
                   <svg
-                    class="w-3 h-3"
+                    class="w-5 h-5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -127,7 +101,7 @@ const loginSuccess = url.searchParams.get("success");
                     <path
                       stroke-linecap="round"
                       stroke-linejoin="round"
-                      stroke-width="3"
+                      stroke-width="2"
                       d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                     ></path>
                   </svg>
@@ -135,250 +109,171 @@ const loginSuccess = url.searchParams.get("success");
               </div>
             </div>
 
-            <!-- Punto de Venta -->
-            <div>
+            <div class="flex flex-col space-y-1.5">
               <label
                 for="id_agencia_vendedor"
-                class="block text-xs font-bold text-slate-600 mb-1.5"
+                class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2"
               >
-                Punto de Venta
+                Ubicación
               </label>
-
-              <!-- Estado “cargando” más rápido/limpio -->
-              <select
-                id="id_agencia_vendedor"
-                name="id_agencia_vendedor"
-                required
-                class="w-full px-4 py-3.5 text-base bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-[#e91b27] focus:ring-2 focus:ring-[#e91b27] focus:ring-opacity-20 transition-all outline-none appearance-none bg-no-repeat bg-right pr-10"
-                style="background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27currentColor%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3e%3cpolyline points=%276 9 12 15 18 9%27%3e%3c/polyline%3e%3c/svg%3e'); background-position: right 0.75rem center; background-size: 1.25rem;"
-              >
-                <option value="">Cargando puntos de venta…</option>
-              </select>
-
-              <p
-                id="agencyHint"
-                class="mt-1 text-[11px] text-slate-400 font-semibold hidden"
-              >
-                Se seleccionó tu último punto de venta.
-              </p>
+              <div class="relative">
+                <select
+                  id="id_agencia_vendedor"
+                  name="id_agencia_vendedor"
+                  required
+                  class="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-[#3d3b3e] focus:bg-white transition-all outline-none appearance-none font-bold text-slate-800"
+                >
+                  <option value="">Cargando agencias…</option>
+                </select>
+                <div
+                  class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"
+                >
+                  <svg
+                    class="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    ><path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7"></path></svg
+                  >
+                </div>
+              </div>
             </div>
 
-            <!-- Submit (más accesible, menos scroll en móvil) -->
             <button
               type="submit"
               id="submitBtn"
-              class="w-full bg-gradient-to-r from-[#3d3b3e] to-[#2d2b2e] text-[#ffd312] font-black py-4 rounded-xl shadow-lg hover:shadow-xl transition-all active:scale-98 text-base touch-manipulation mt-4 disabled:opacity-70 disabled:active:scale-100"
+              class="w-full bg-[#3d3b3e] text-[#ffd312] font-black py-4.5 rounded-2xl shadow-xl active:scale-95 transition-all text-sm uppercase tracking-[0.2em] mt-2"
             >
-              <span id="submitText">Iniciar Sesión</span>
-              <span id="submitLoading" class="hidden">
-                <svg
-                  class="animate-spin h-5 w-5 mx-auto"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
+              <span id="submitText">Entrar</span>
+              <div id="submitLoading" class="hidden">
+                <svg class="animate-spin h-5 w-5 mx-auto" viewBox="0 0 24 24"
+                  ><circle
                     class="opacity-25"
                     cx="12"
                     cy="12"
                     r="10"
                     stroke="currentColor"
-                    stroke-width="4"></circle>
-                  <path
+                    stroke-width="4"
+                    fill="none"></circle><path
                     class="opacity-75"
                     fill="currentColor"
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-              </span>
+                  ></path></svg
+                >
+              </div>
             </button>
           </form>
         </div>
 
-        <div class="bg-slate-50 px-4 py-2.5 text-center border-t">
-          <p class="text-[10px] text-slate-400 font-semibold">
-            Altek Systems © {new Date().getFullYear()}
+        <div class="bg-slate-50 py-4 text-center border-t border-slate-100">
+          <p
+            class="text-[9px] text-slate-300 font-bold uppercase tracking-widest"
+          >
+            Altek Systems © 2026
           </p>
         </div>
       </div>
     </div>
   </main>
 
-  <script>
-    interface Agencia {
-      Cod_Agen: number | string;
-      Nom_Agen: string;
+  <style is:global>
+    /* Reset de seguridad */
+    * {
+      box-sizing: border-box;
     }
 
-    const $ = (id: string) => document.getElementById(id);
+    input,
+    select,
+    button {
+      font-size: 16px !important; /* Evita zoom iOS */
+      max-width: 100%;
+    }
 
-    const form = $("loginForm") as HTMLFormElement | null;
-    const nick = $("nick") as HTMLInputElement | null;
-    const pass = $("pass") as HTMLInputElement | null;
-    const select = $("id_agencia_vendedor") as HTMLSelectElement | null;
+    .py-4\.5 {
+      padding-top: 1.1rem;
+      padding-bottom: 1.1rem;
+    }
 
-    const submitBtn = $("submitBtn");
-    const submitText = $("submitText");
-    const submitLoading = $("submitLoading");
-
-    // 1) Password toggle (botón grande para dedo)
-    const togglePassword = $("togglePassword");
-    togglePassword?.addEventListener("click", () => {
-      if (!pass) return;
-      const type = pass.type === "password" ? "text" : "password";
-      pass.type = type;
-      togglePassword.setAttribute(
-        "aria-label",
-        type === "password" ? "Mostrar contraseña" : "Ocultar contraseña",
-      );
-    });
-
-    // 2) Flujo móvil: Enter en usuario -> contraseña; Enter en contraseña -> si agencia ya está, submit
-    nick?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        pass?.focus();
+    @keyframes entrance {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
       }
-    });
-
-    pass?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        // si ya hay agencia, dejar que el submit ocurra naturalmente
-        // si no, saltar a agencia
-        if (select && !select.value) {
-          e.preventDefault();
-          select.focus();
-        }
-      }
-    });
-
-    // 3) Feedback submit (evita dobles taps)
-    form?.addEventListener("submit", () => {
-      submitBtn?.setAttribute("disabled", "true");
-      submitText?.classList.add("hidden");
-      submitLoading?.classList.remove("hidden");
-    });
-
-    // 4) Agencias: cache localStorage con TTL para que cargue “instantáneo” en re-entradas
-    const AGENCY_CACHE_KEY = "ofit_agencies_cache_v1";
-    const AGENCY_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
-    const LAST_AGENCY_KEY = "ofit_last_agency";
-
-    function readCache(): { ts: number; data: Agencia[] } | null {
-      try {
-        const raw = localStorage.getItem(AGENCY_CACHE_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw);
-        if (!parsed?.ts || !Array.isArray(parsed?.data)) return null;
-        if (Date.now() - parsed.ts > AGENCY_CACHE_TTL_MS) return null;
-        return parsed;
-      } catch {
-        return null;
+      to {
+        opacity: 1;
+        transform: translateY(0);
       }
     }
 
-    function writeCache(data: Agencia[]) {
-      try {
-        localStorage.setItem(
-          AGENCY_CACHE_KEY,
-          JSON.stringify({ ts: Date.now(), data }),
-        );
-      } catch {}
-    }
-
-    function getLastAgency(): string {
-      try {
-        return localStorage.getItem(LAST_AGENCY_KEY) || "";
-      } catch {
-        return "";
-      }
-    }
-
-    function setLastAgency(val: string) {
-      try {
-        localStorage.setItem(LAST_AGENCY_KEY, val);
-      } catch {}
-    }
-
-    function paintAgencies(data: Agencia[]) {
-      if (!select) return;
-
-      const last = getLastAgency();
-
-      select.innerHTML = '<option value="">Seleccione ubicación…</option>';
-
-      data.forEach((a) => {
-        const opt = document.createElement("option");
-        opt.value = String(a.Cod_Agen);
-        opt.textContent = a.Nom_Agen.trim();
-        select.appendChild(opt);
-      });
-
-      // Auto-selección:
-      // - si solo hay 1, selección automática
-      // - si hay “última usada”, selección automática
-      if (data.length === 1) {
-        select.value = String(data[0].Cod_Agen);
-      } else if (last) {
-        select.value = last;
-        const hint = $("agencyHint");
-        if (hint && select.value === last) hint.classList.remove("hidden");
-      }
-    }
-
-    // Persistir última agencia
-    select?.addEventListener("change", () => {
-      if (!select.value) return;
-      setLastAgency(select.value);
-    });
-
-    // Pintar cache primero (percibido como instantáneo)
-    const cached = readCache();
-    if (cached?.data?.length) {
-      paintAgencies(cached.data);
-    }
-
-    // Luego refrescar del servidor (si cambia algo)
-    fetch("/api/agencias", { cache: "force-cache" })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((data: Agencia[]) => {
-        writeCache(data);
-        paintAgencies(data);
-      })
-      .catch(() => {
-        if (!select) return;
-        // Si ya hay cache pintado, no lo sobreescribas con error
-        if (cached?.data?.length) return;
-        select.innerHTML =
-          '<option value="">Error cargando puntos de venta</option>';
-      });
-
-    // 5) Focus móvil: enfocar solo si no hay autofill (evita teclado innecesario)
-    // - si el navegador ya rellenó usuario, ir a contraseña; si no, usuario.
-    window.addEventListener("load", () => {
-      const isMobile = window.matchMedia("(max-width: 768px)").matches;
-      if (!isMobile) {
-        nick?.focus();
-        return;
-      }
-      const nickHasValue = !!nick?.value?.trim();
-      const passHasValue = !!pass?.value?.trim();
-      if (nickHasValue && !passHasValue) pass?.focus();
-      if (!nickHasValue) nick?.focus();
-    });
-  </script>
-
-  <style>
-    @media (max-width: 640px) {
-      input,
-      select,
-      button {
-        font-size: 16px !important; /* evita zoom iOS */
-      }
-    }
-
-    .active\:scale-98:active {
-      transform: scale(0.98);
+    .animate-entrance {
+      animation: entrance 0.4s ease-out forwards;
     }
   </style>
+  <script>
+    // Script para cargar agencias
+    async function loadAgencias() {
+      const select = document.getElementById(
+        "id_agencia_vendedor",
+      ) as HTMLSelectElement;
+      if (!select) return;
+
+      try {
+        const response = await fetch("/api/agencias");
+        if (response.ok) {
+          const agencias = await response.json();
+          select.innerHTML =
+            '<option value="">Seleccione una ubicación...</option>';
+
+          // Intentar recuperar selección guardada
+          const savedAgency = getCookie("agencia_id");
+
+          agencias.forEach((ag: any) => {
+            const option = document.createElement("option");
+            option.value = ag.Cod_Agen;
+            option.textContent = ag.Nom_Agen;
+            if (String(ag.Cod_Agen) === String(savedAgency)) {
+              option.selected = true;
+            }
+            select.appendChild(option);
+          });
+        } else {
+          select.innerHTML =
+            '<option value="">Error al cargar ubicaciones</option>';
+        }
+      } catch (error) {
+        console.error("Error cargando agencias:", error);
+        select.innerHTML =
+          '<option value="">Error de conexión. Intente recargar.</option>';
+      }
+    }
+
+    function getCookie(name: string) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop()?.split(";").shift();
+    }
+
+    // Script para loading del botón
+    const loginForm = document.getElementById("loginForm") as HTMLFormElement;
+    const submitBtn = document.getElementById("submitBtn") as HTMLButtonElement;
+    const submitText = document.getElementById("submitText");
+    const submitLoading = document.getElementById("submitLoading");
+
+    if (loginForm) {
+      loginForm.addEventListener("submit", () => {
+        if (submitBtn && submitText && submitLoading) {
+          submitBtn.disabled = true;
+          submitText.classList.add("hidden");
+          submitLoading.classList.remove("hidden");
+        }
+      });
+    }
+
+    // Inicializar
+    document.addEventListener("DOMContentLoaded", loadAgencias);
+  </script>
 </Layout>
