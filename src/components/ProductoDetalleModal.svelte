@@ -104,23 +104,16 @@
       localStorage.getItem("cotizacion_ofit") || "[]",
     );
 
-    // Buscamos si el producto ya está en el carrito por su ID
     const index = carritoActual.findIndex((i: any) => i.id === producto.id);
 
     if (index !== -1) {
-      // 1. Actualizamos el precio al seleccionado actualmente
       carritoActual[index].precio = precioFinal;
       carritoActual[index].tipoSeleccionado = tipoPrecio;
-
-      // 2. REEMPLAZAMOS la cantidad (en lugar de sumar)
-      // Si el usuario pone 5 en el modal, ahora habrán 5, sin importar cuántos había antes.
       carritoActual[index].cantidad = cantidad;
 
-      // Actualizamos metadatos por si hubo cambios
       carritoActual[index].precioOferta = producto.precioA;
       carritoActual[index].precioDescuento = producto.precioo;
     } else {
-      // Si es nuevo, lo agregamos normal
       const nuevoItem = {
         id: producto.id,
         nombre: producto.nombre,
@@ -170,18 +163,17 @@
       on:click|stopPropagation
       style="transform: scale({$scale})"
     >
-      <button on:click={close} class="modal-close-btn" aria-label="Cerrar modal"
-        >×</button
+      <button
+        on:click={close}
+        class="modal-close-btn text-lg"
+        aria-label="Cerrar modal">×</button
       >
 
       <div class="modal-content">
         <div class="p-4 pb-6">
-          <button
-            type="button"
-            class="imagen-container w-full border-0"
-            on:click={() => (imagenAmpliada = !imagenAmpliada)}
-          >
+          <button type="button" class="imagen-container w-full border-0">
             <img
+              on:click={() => (imagenAmpliada = !imagenAmpliada)}
               src={`/api/producto-imagen/${producto.id}`}
               alt={producto.nombre}
               class="imagen-producto"
@@ -409,10 +401,10 @@
     top: 0.75rem;
     right: 0.75rem;
     z-index: 9999;
-    background-color: rgb(241, 245, 249);
+    background-color: rgb(198, 198, 198);
     color: rgb(100, 116, 139);
-    width: 2.25rem;
-    height: 2.25rem;
+    width: 4rem;
+    height: 4rem;
     border-radius: 9999px;
     display: flex;
     align-items: center;
