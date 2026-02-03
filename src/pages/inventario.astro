@@ -2,7 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 import Buscador from "../components/Buscador.svelte";
 import sql from "mssql";
-import  SpeedInsights  from "@vercel/speed-insights/astro"
+import SpeedInsights from "@vercel/speed-insights/astro";
 
 const agenciaId = Astro.cookies.get("agencia_id")?.value;
 let nombreAgencia = "";
@@ -37,7 +37,7 @@ if (agenciaId) {
 ---
 
 <Layout title="Inventario | OFIT">
-  <SpeedInsights/>
+  <SpeedInsights />
   <Buscador
     client:load
     idAgenciaUsuario={agenciaId}

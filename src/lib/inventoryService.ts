@@ -1,39 +1,53 @@
 // src/lib/inventoryService.ts
-import { getInventario as getInventarioPropio } from './sql';
+import { buscarLocal } from './sql';
 import { getIntcomexData } from './providers/intcomex';
 import type { ProductoUniversal } from '../types/inventario';
+import { PERMS } from '../brand/brand';
 
-export async function getAllInventory(): Promise<ProductoUniversal[]> {
+export async function getAllInventory(
+  query: string = '',
+  agencia: string = '',
+  soloLocal: boolean = false,
+  userPerms: number[] = []
+): Promise<ProductoUniversal[]> {
   try {
-    // Ejecutamos ambas peticiones en paralelo para máxima velocidad (SSR)
     const [propioRaw, externoRaw] = await Promise.all([
-      getInventarioPropio().catch(() => []),
-      getIntcomexData().catch(() => [])
+      buscarLocal(query, agencia, soloLocal, userPerms),
+      soloLocal ? Promise.resolve([]) : getIntcomexData(query).catch(() => [])
     ]);
 
-    // Mapeo de tu SQL Server 2008 R2 (Asegúrate de usar las mayúsculas correctas de tu View)
-    const propio: ProductoUniversal[] = propioRaw.map(p => ({
-      id: (p.Codigo || p.codigo || '').toString(),
-      nombre: p.Nombre || p.nombre,
-      existencia: p.Total || p.existencia || 0,
-      preciop: p['Precio P'] || p.precioP || 0,
-      precioa: p['Precio A'] || p.precioA || 0,
-      preciob: p['Precio B'] || p.precioB || 0,
-      precioo: p['Precio O'] || p.precioo || 0,
-      vigencia: p.Vigencia || p.vigencia || undefined,
-      ultimaCompra: p.ultimaCompra || undefined,
-      marca: p.Marca || p.marca,
-      modelo: p.Modelo || p.modelo || undefined,
-      Barras: p.Barras || p.barras || undefined,
-      origen: 'PROPIO',
-      proveedorNombre: 'OFITCM',
-      entregaInmediata: true
-    }));
+    const propio: ProductoUniversal[] = propioRaw.map(p => {
+      // Mapeo base
+      const prod: ProductoUniversal = {
+        id: (p.id || '').toString(),
+        nombre: p.nombre,
+        existencia: p.Total || 0,
+        preciop: p.precioP || 0,
+        precioa: p.precioA || 0,
+        precioo: p.precioo || 0,
+        vigencia: p.vigencia,
+        marca: p.marca,
+        modelo: p.modelo,
+        barras: p.barras,
+        origen: 'PROPIO',
+        proveedorNombre: 'OFIT',
+        entregaInmediata: true,
+        depto: '',
+        ultimaCompra: '',
+        direccionWeb: ''
+      };
 
-    // Retornamos la unión de ambos listados
+      // RIGOR: El objeto final solo lleva 'costo' si el permiso existe
+      if (userPerms.includes(PERMS.VIEW_COSTS)) {
+        prod.costo = p.costo;
+      }
+
+      return prod;
+    });
+
     return [...propio, ...externoRaw];
   } catch (error) {
-    console.error("Error en el servicio de inventario:", error);
+    console.error("Error en inventoryService:", error);
     return [];
   }
 }
