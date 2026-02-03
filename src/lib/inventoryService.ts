@@ -25,6 +25,7 @@ export async function getAllInventory(
         preciop: p.precioP || 0,
         precioa: p.precioA || 0,
         precioo: p.precioo || 0,
+        costo: p.costo || 0,
         vigencia: p.vigencia,
         marca: p.marca,
         modelo: p.modelo,
@@ -39,7 +40,7 @@ export async function getAllInventory(
 
       // RIGOR: El objeto final solo lleva 'costo' si el permiso existe
       if (userPerms.includes(PERMS.VIEW_COSTS)) {
-        prod.costo = p.costo;
+        prod.costo = p.costo || 0;
       }
 
       return prod;

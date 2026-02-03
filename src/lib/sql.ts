@@ -32,7 +32,7 @@ export async function buscarLocal(
 
         // RIGOR: Inyectar costo solo si tiene el permiso 1230 definido en brand.ts
         if (userPerms.includes(PERMS.VIEW_COSTS)) {
-            columns.push("v.Costo_Prod as costo");
+            columns.push("v.costo as costo");
         }
 
         const selectClause = columns.join(", ");

@@ -14,7 +14,6 @@ export const BRAND_CONFIG = {
         errors: {
             notAuthorized: 'No tienes permiso.',
         },
-        // ESTA ES LA PARTE QUE FALTA:
         admin: {
             internalLabel: 'Información Interna',
             showCost: 'Revelar Costo',

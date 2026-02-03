@@ -9,6 +9,7 @@ export interface ProductoUniversal {
   marca: string;
   depto: string;
   vigencia: string;
+  ultimaCompra: string;
   direccionWeb: string;
   modelo?: string;
   barras?: string;
