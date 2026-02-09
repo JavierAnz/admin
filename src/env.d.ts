@@ -6,6 +6,7 @@ declare namespace App {
             nick: string;
             permissions: number[];
             agenciaId?: string;
+            adminPrecios: boolean;
         };
     }
 }

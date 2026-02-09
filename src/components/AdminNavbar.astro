@@ -1,0 +1,203 @@
+---
+// AdminNavbar.astro - Navbar condicional para usuarios admin
+const { user } = Astro.locals;
+const currentPath = Astro.url.pathname;
+---
+
+<nav class="admin-navbar">
+    <div class="navbar-container">
+        <div class="brand">
+            <a href="/inventario" class="logo-link">
+                <img src="/logo.png" alt="OFIT" class="logo" />
+            </a>
+        </div>
+
+        <div class="nav-links">
+            <a
+                href="/inventario"
+                class:list={[
+                    "nav-link",
+                    { active: currentPath === "/inventario" },
+                ]}
+            >
+                <svg
+                    class="icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <path
+                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                    ></path>
+                </svg>
+                <span>Inventario</span>
+            </a>
+
+            {
+                user?.adminPrecios && (
+                    <a
+                        href="/admin"
+                        class:list={[
+                            "nav-link",
+                            { active: currentPath.startsWith("/admin") },
+                        ]}
+                    >
+                        <svg
+                            class="icon"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <circle cx="12" cy="12" r="3" />
+                        </svg>
+                        <span>Admin</span>
+                    </a>
+                )
+            }
+        </div>
+
+        <div class="user-section">
+            <span class="user-nick">{user?.nick}</span>
+            <a
+                href="/api/auth/logout"
+                class="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-black text-[10px] uppercase border border-red-100 hover:bg-red-600 hover:text-white transition-all shadow-sm"
+            >
+                <svg
+                    class="w-6 h-6 text-gray-800 dark:text-white"
+                    aria-hidden="true"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-width="2"
+                        d="m6 6 12 12m3-6a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                    ></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+</nav>
+
+<style>
+    .admin-navbar {
+        background: linear-gradient(135deg, #3d3b3e 0%, #2a292b 100%);
+        padding: 0.75rem 1.5rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+
+    .navbar-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .brand .logo {
+        height: 32px;
+        width: auto;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+        transition: transform 0.2s ease;
+    }
+
+    .brand .logo:hover {
+        transform: scale(1.05);
+    }
+
+    .nav-links {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        color: rgba(255, 255, 255, 0.7);
+        text-decoration: none;
+        font-size: 0.875rem;
+        font-weight: 600;
+        border-radius: 0.5rem;
+        transition: all 0.2s ease;
+        letter-spacing: 0.025em;
+    }
+
+    .nav-link:hover {
+        color: #ffd312;
+        background: rgba(255, 211, 18, 0.1);
+    }
+
+    .nav-link.active {
+        color: #ffd312;
+        background: rgba(255, 211, 18, 0.15);
+    }
+
+    .nav-link .icon {
+        width: 18px;
+        height: 18px;
+    }
+
+    .user-section {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .user-nick {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    .logout-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem;
+        color: rgba(255, 255, 255, 0.5);
+        border-radius: 0.5rem;
+        transition: all 0.2s ease;
+    }
+
+    .logout-btn:hover {
+        color: #e91b27;
+        background: rgba(233, 27, 39, 0.1);
+    }
+
+    .logout-btn .icon {
+        width: 20px;
+        height: 20px;
+    }
+
+    @media (max-width: 640px) {
+        .admin-navbar {
+            padding: 0.5rem 1rem;
+        }
+
+        .nav-link span {
+            display: none;
+        }
+
+        .nav-link {
+            padding: 0.5rem;
+        }
+
+        .user-nick {
+            display: none;
+        }
+    }
+</style>

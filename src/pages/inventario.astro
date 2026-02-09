@@ -1,5 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import AdminNavbar from "../components/AdminNavbar.astro";
 import Buscador from "../components/Buscador.svelte";
 import sql from "mssql";
 import SpeedInsights from "@vercel/speed-insights/astro";
@@ -37,10 +38,20 @@ if (agenciaId) {
 ---
 
 <Layout title="Inventario | OFIT">
-  <SpeedInsights />
-  <Buscador
-    client:load
-    idAgenciaUsuario={agenciaId}
-    nombreAgencia={nombreAgencia}
-  />
+  <div class="inventario-page">
+    <AdminNavbar />
+    <SpeedInsights />
+    <Buscador
+      client:load
+      idAgenciaUsuario={agenciaId}
+      nombreAgencia={nombreAgencia}
+    />
+  </div>
 </Layout>
+
+<style is:global>
+  .inventario-page {
+    min-height: 100vh;
+    background: #f8fafc;
+  }
+</style>

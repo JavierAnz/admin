@@ -7,6 +7,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const agencia = url.searchParams.get('agencia') || '';
     const soloLocal = url.searchParams.get('soloLocal') === 'true';
 
+    // Debug log para verificar parámetros
+    console.log('[SEARCH] Debug:', { query: queryRaw, agencia, soloLocal });
+
     // Rigor: Validación temprana
     if (queryRaw.trim().length < 2) {
         return new Response(JSON.stringify([]), { status: 200 });

@@ -1,0 +1,33 @@
+---
+import Layout from "../layouts/Layout.astro";
+import AdminNavbar from "../components/AdminNavbar.astro";
+import AdminPanel from "../components/AdminPanel.svelte";
+---
+
+<Layout title="Admin | OFIT">
+    <div class="admin-page">
+        <AdminNavbar />
+        <main class="admin-content">
+            <AdminPanel client:load />
+        </main>
+    </div>
+</Layout>
+
+<style is:global>
+    .admin-page {
+        min-height: 100vh;
+        background: #f8fafc;
+    }
+
+    .admin-content {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    @media (max-width: 640px) {
+        .admin-content {
+            padding: 1rem;
+        }
+    }
+</style>

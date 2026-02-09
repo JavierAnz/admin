@@ -23,7 +23,8 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
                 SELECT 
                     wu.ID_USUARIO, 
                     wu.NICK, 
-                    su.ID_PERFIL
+                    su.ID_PERFIL,
+                    wu.ADMIN_PRECIOS
                 FROM dbo.WEB_USUARIO wu
                 INNER JOIN altekdb.sysusua su ON wu.ID_USUA = su.id_usua
                 WHERE UPPER(LTRIM(RTRIM(wu.NICK))) = @nick 
@@ -50,7 +51,8 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
             const sessionData = {
                 id: user.ID_USUARIO,
                 nick: user.NICK,
-                permissions: permissions
+                permissions: permissions,
+                adminPrecios: user.ADMIN_PRECIOS === true || user.ADMIN_PRECIOS === 1
             };
 
             cookies.set("ofit_session", JSON.stringify(sessionData), {

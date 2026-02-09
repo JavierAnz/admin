@@ -5,7 +5,6 @@
 
   export let idAgenciaUsuario: string | null | undefined = undefined;
   export let nombreAgencia = "";
-  export let userPermissions: number[] = [];
 
   const GTQ = new Intl.NumberFormat("es-GT", {
     style: "currency",
@@ -29,6 +28,36 @@
     selProd: any = null,
     branchEx: any[] = [],
     loadEx = false;
+
+  // Carrito/Cotización state - estilo original
+  let listaCarrito: any[] = [];
+  let mostrarResumen = false;
+
+  function cargarCarrito() {
+    if (typeof localStorage !== "undefined") {
+      listaCarrito = JSON.parse(
+        localStorage.getItem("cotizacion_ofit") || "[]",
+      );
+    }
+  }
+
+  function enviarWhatsApp() {
+    let mensaje = `*COTIZACIÓN OFIT*\n\n`;
+    let total = 0;
+    listaCarrito.forEach((item) => {
+      mensaje += `${item.modelo}- ${item.marca} - ${item.nombre}\n   *Cant:* ${item.cantidad} - *Precio:* ${GTQ.format(item.precio * item.cantidad)}\n\n`;
+      total += item.precio * item.cantidad;
+    });
+    mensaje += `*TOTAL: ${GTQ.format(total)}*`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(mensaje)}`, "_blank");
+  }
+
+  onMount(() => {
+    cargarCarrito();
+    window.addEventListener("carrito-actualizado", cargarCarrito);
+    return () =>
+      window.removeEventListener("carrito-actualizado", cargarCarrito);
+  });
 
   // ✨ SOLUCIÓN AL ERROR: Definición de getImageUrl
   function getImageUrl(
@@ -67,6 +96,13 @@
     if (!filtros.precio && !filtros.existencia && !filtros.precioo)
       return productos;
     return copia.sort((a, b) => {
+      // Filtro de ofertas: primero los que tienen precioo > 0
+      if (filtros.precioo) {
+        const aOferta = (a.precioo || 0) > 0 ? 1 : 0;
+        const bOferta = (b.precioo || 0) > 0 ? 1 : 0;
+        const diff = bOferta - aOferta; // Ofertas primero
+        if (diff !== 0) return diff;
+      }
       if (filtros.precio) {
         const diff = (a.precioa || 0) - (b.precioa || 0);
         if (diff !== 0) return filtros.precio === "asc" ? diff : -diff;
@@ -84,18 +120,11 @@
   }
 </script>
 
-<div class="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
-  <div class="flex justify-end pt-2">
-    <a
-      href="/api/auth/logout"
-      class="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-black text-[10px] uppercase border border-red-100 hover:bg-red-600 hover:text-white transition-all shadow-sm"
-    >
-      Cerrar Sesión ✕
-    </a>
-  </div>
-
+<div
+  class="max-w-7xl mx-auto p-2 sm:p-4 md:p-6 space-y-4 sm:space-y-6 pb-32 overflow-x-hidden"
+>
   <div
-    class="sticky top-2 bg-white/95 backdrop-blur-md z-40 pb-4 border-b border-gray-100 space-y-3"
+    class="sticky top-0 bg-white/95 backdrop-blur-md z-40 pb-3 sm:pb-4 border-b border-gray-100 space-y-2 sm:space-y-3 px-1"
   >
     <div class="relative">
       <input
@@ -103,7 +132,7 @@
         bind:value={busqueda}
         on:input={handleInput}
         placeholder={BRAND_CONFIG.copy.search.placeholder}
-        class="w-full p-4 bg-slate-100 border-none rounded-2xl focus:ring-4 focus:ring-yellow-400/30 outline-none text-lg font-black text-slate-800"
+        class="w-full p-3 sm:p-4 bg-slate-100 border-none rounded-2xl focus:ring-4 focus:ring-yellow-400/30 outline-none text-base sm:text-lg font-black text-slate-800 box-border"
       />
       {#if loading}
         <div
@@ -112,7 +141,7 @@
       {/if}
     </div>
 
-    <div class="flex items-center justify-between gap-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
       <button
         on:click={() => {
           soloMiSucursal = !soloMiSucursal;
@@ -132,20 +161,22 @@
           ></div>
         </div>
         <span
-          class="text-[10px] font-black uppercase {soloMiSucursal
+          class="text-[9px] sm:text-[10px] font-black uppercase {soloMiSucursal
             ? 'text-green-600'
             : 'text-slate-400'}">Mi Sucursal</span
         >
       </button>
 
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1 sm:gap-2">
         <span
-          class="text-[10px] font-black text-slate-400 uppercase tracking-widest"
-          >{productos.length} {BRAND_CONFIG.name} Items</span
+          class="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase"
+          >{productos.length} Items</span
         >
         {#if nombreAgencia}
           <div class="h-3 w-px bg-slate-200"></div>
-          <div class="text-[10px] font-black text-slate-500 uppercase">
+          <div
+            class="text-[8px] sm:text-[10px] font-black text-slate-500 uppercase truncate max-w-[80px] sm:max-w-none"
+          >
             📍 {nombreAgencia}
           </div>
         {/if}
@@ -194,40 +225,58 @@
           selProd = { ...item };
           showModal = true;
         }}
-        class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-yellow-400 transition-all text-left w-full flex items-center gap-4 relative overflow-hidden active:scale-[0.98]"
+        class="bg-white p-4 rounded-2xl border transition-all cursor-pointer active:scale-95 text-left w-full relative overflow-hidden {item.precioo >
+        0
+          ? 'border-2 border-red-400 shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30'
+          : 'border border-slate-100 shadow-sm hover:border-[#ffd312]'}"
       >
-        <div
-          class="w-20 h-20 bg-slate-50 rounded-xl flex-shrink-0 flex items-center justify-center p-2"
-        >
-          <img
-            src={getImageUrl(item.id, "thumb")}
-            alt={item.nombre}
-            class="max-h-full max-w-full object-contain"
-          />
-        </div>
-        <div class="flex-1 min-w-0">
-          <h3 class="text-[9px] font-black text-slate-400 uppercase">
-            {item.modelo || "S/M"}
-          </h3>
-          <h4
-            class="text-sm font-black text-slate-800 uppercase truncate leading-tight"
+        {#if item.precioo > 0}
+          <div
+            class="absolute top-2 right-2 bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase shadow-md z-10 flex items-center gap-1"
           >
-            {item.nombre}
-          </h4>
-          <p class="text-[9px] text-slate-400 font-bold mt-1 uppercase">
-            SKU: {item.id} | {item.marca}
-          </p>
-        </div>
-        <div class="text-right">
-          <div class="text-sm font-black text-slate-900">
-            {GTQ.format(item.preciop || 0)}
+            <span>🔥</span>
+            <span>OFERTA</span>
           </div>
           <div
-            class="text-[9px] font-black mt-1 {item.existencia > 0
-              ? 'text-blue-600'
-              : 'text-red-400'} uppercase"
+            class="absolute inset-0 bg-gradient-to-r from-transparent via-red-500/5 to-transparent animate-shimmer-card"
+          ></div>
+        {/if}
+
+        <div class="flex items-center gap-4 relative z-[5]">
+          <div
+            class="w-20 h-20 bg-slate-50 rounded-xl flex-shrink-0 flex items-center justify-center p-2 overflow-hidden"
           >
-            ● {Math.floor(item.existencia)} DISP.
+            <img
+              src={getImageUrl(item.id, "thumb")}
+              alt={item.nombre}
+              class="max-h-full max-w-full object-contain"
+              loading="lazy"
+            />
+          </div>
+          <div class="flex-1 min-w-0">
+            <h3 class="text-[9px] font-black text-slate-400 uppercase">
+              {item.modelo || "S/M"}
+            </h3>
+            <h4
+              class="text-sm font-black text-slate-800 uppercase truncate leading-tight"
+            >
+              {item.nombre}
+            </h4>
+            <p class="text-[9px] text-slate-400 font-bold mt-1 uppercase">
+              SKU: {item.id} | {item.marca}
+            </p>
+          </div>
+          <div class="text-right">
+            <div class="text-sm font-black text-slate-900">
+              {GTQ.format(item.preciop || 0)}
+            </div>
+            <div
+              class="text-[9px] font-black mt-1 {item.existencia > 0
+                ? 'text-blue-600'
+                : 'text-red-400'} uppercase"
+            >
+              ● {Math.floor(item.existencia)} DISP.
+            </div>
           </div>
         </div>
       </button>
@@ -236,6 +285,114 @@
 </div>
 
 <ProductoDetalleModal bind:showModal producto={selProd} />
+
+<!-- Carrito flotante estilo original -->
+{#if listaCarrito.length > 0}
+  <div class="fixed bottom-6 right-6 z-[60] flex flex-col items-end gap-3">
+    {#if mostrarResumen}
+      <div
+        class="w-72 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden mb-2"
+      >
+        <div
+          class="p-5 bg-[#3d3b3e] flex justify-between items-center text-[#ffd312]"
+        >
+          <span class="text-[10px] font-black uppercase tracking-widest"
+            >Cotización</span
+          >
+          <button
+            on:click={() => {
+              localStorage.removeItem("cotizacion_ofit");
+              cargarCarrito();
+            }}
+            class="text-[10px] font-black uppercase text-white/70 hover:text-white"
+            >limpiar</button
+          >
+        </div>
+        <div class="max-h-64 overflow-y-auto p-4 space-y-3">
+          {#each listaCarrito as item}
+            <div
+              class="flex justify-between items-center gap-2 pb-2 border-b border-slate-50"
+            >
+              <button
+                type="button"
+                on:click={() => {
+                  selProd = { ...item };
+                  showModal = true;
+                }}
+                class="w-16 h-16 bg-slate-50 rounded-xl flex-shrink-0 flex items-center justify-center p-2 active:scale-90 transition-all border border-slate-100"
+              >
+                <img
+                  src={getImageUrl(item.id, "thumb")}
+                  alt=""
+                  class="max-h-full object-contain"
+                  loading="lazy"
+                  decoding="async"
+                  width="64"
+                  height="64"
+                />
+              </button>
+              <div class="flex-1 flex flex-col">
+                <span class="text-[8px] font-black uppercase"
+                  >COD: {item.id}</span
+                >
+                <span class="text-[11px] font-bold leading-tight"
+                  >{item.modelo}</span
+                >
+                {#if item.cantidad > 1}
+                  <span class="text-[10px] font-black text-slate-400 uppercase"
+                    >{GTQ.format(item.precio)}</span
+                  >
+                {/if}
+              </div>
+              <span
+                class="px-2 py-1 bg-slate-100 rounded text-[10px] font-black"
+                >x {item.cantidad}</span
+              >
+              <span class="text-[10px] font-black text-slate-400 uppercase"
+                >{GTQ.format(item.precio * item.cantidad)}</span
+              >
+              <button
+                on:click={() => {
+                  listaCarrito = listaCarrito.filter((i) => i.id !== item.id);
+                  localStorage.setItem(
+                    "cotizacion_ofit",
+                    JSON.stringify(listaCarrito),
+                  );
+                }}
+                class="text-red-500 font-black text-[10px]">X</button
+              >
+            </div>
+          {/each}
+          <span class="text-[10px] font-bold uppercase"
+            >Total: {GTQ.format(
+              listaCarrito.reduce((a, b) => a + b.precio * b.cantidad, 0),
+            )}</span
+          >
+        </div>
+        <div class="p-4 bg-slate-50">
+          <button
+            on:click={enviarWhatsApp}
+            class="w-full bg-[#25D366] text-white py-4 rounded-2xl font-black text-xs uppercase flex items-center justify-center gap-2"
+          >
+            <span>📱</span> WhatsApp
+          </button>
+        </div>
+      </div>
+    {/if}
+    <button
+      on:click={() => (mostrarResumen = !mostrarResumen)}
+      class="bg-[#3d3b3e] text-[#ffd312] h-16 w-16 rounded-full shadow-2xl border-4 border-[#ffd312] flex items-center justify-center text-xl active:scale-90 transition-all relative"
+    >
+      {!mostrarResumen ? "🛒" : "✕"}
+      <span
+        class="absolute -top-1 -right-1 bg-[#e91b27] text-white text-[10px] font-black h-6 w-6 rounded-full flex items-center justify-center border-2 border-white"
+      >
+        {listaCarrito.length}
+      </span>
+    </button>
+  </div>
+{/if}
+```
 
 <style>
   .no-scrollbar::-webkit-scrollbar {
@@ -247,5 +404,16 @@
   }
   :global(body) {
     background-color: #f8fafc;
+  }
+  @keyframes shimmer-card {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  .animate-shimmer-card {
+    animation: shimmer-card 3s infinite;
   }
 </style>

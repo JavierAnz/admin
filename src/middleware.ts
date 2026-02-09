@@ -13,6 +13,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
         url.pathname.startsWith("/inventario") ||
         url.pathname.startsWith("/api/productos");
 
+    const esAdmin =
+        url.pathname.startsWith("/admin") ||
+        url.pathname.startsWith("/api/admin");
+
     // 1. Si hay sesión, hidratamos locals.user
     if (sesionRaw) {
         try {
@@ -24,7 +28,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
                 id: userData.id,
                 nick: userData.nick,
                 permissions: userData.permissions || [],
-                agenciaId: cookies.get("agencia_id")?.value
+                agenciaId: cookies.get("agencia_id")?.value,
+                adminPrecios: userData.adminPrecios || false
             };
         } catch (e) {
             console.error("Error al parsear sesión:", e);
@@ -34,8 +39,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
 
     // 2. Guardias de seguridad
-    if (esPrivado && !locals.user) {
+    if ((esPrivado || esAdmin) && !locals.user) {
         return redirect("/login?error=no-auth");
+    }
+
+    // 3. Verificar permiso admin
+    if (esAdmin && !locals.user?.adminPrecios) {
+        return redirect("/inventario?error=no-admin");
     }
 
     // 3. Evitar que un logueado vuelva al login

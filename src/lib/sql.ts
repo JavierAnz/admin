@@ -43,7 +43,7 @@ export async function buscarLocal(
         if (soloLocal && parseInt(agencia) > 0) {
             request.input('agencia', sql.Int, parseInt(agencia));
             query = `
-        SELECT TOP 50 ${selectClause}, r.existencia as Total
+        SELECT ${selectClause}, r.existencia as Total
         FROM dbo.VW_PRODUCTOS_LISTADO_WEB v WITH (NOLOCK)
         INNER JOIN rel_productos_agencias r WITH (NOLOCK) ON v.Codigo = r.cod_prod 
         AND r.COD_AGEN = @agencia AND r.existencia > 0
@@ -51,7 +51,7 @@ export async function buscarLocal(
         ORDER BY v.Nombre ASC`;
         } else {
             query = `
-        SELECT TOP 50 ${selectClause}, 
+        SELECT ${selectClause}, 
           (SELECT SUM(r2.existencia) FROM rel_productos_agencias r2
            INNER JOIN agencias a ON r2.cod_agen = a.cod_agen
            WHERE r2.cod_prod = v.Codigo AND (a.ES_SALA_VENTAS = 1 OR a.RECIBE_COMPRAS = 1)) as Total
