@@ -1,12 +1,10 @@
 <script lang="ts">
   import { tweened } from "svelte/motion";
   import { cubicOut } from "svelte/easing";
-  import { onMount, onDestroy } from "svelte";
+  import { BRAND_CONFIG } from "../brand/brand";
 
   export let showModal = false;
   export let producto: any = null;
-  export let existenciasPorSucursal: any[] = [];
-  export let loadingExistencias = false;
 
   const GTQ = new Intl.NumberFormat("es-GT", {
     style: "currency",
@@ -15,87 +13,62 @@
   const scale = tweened(0, { duration: 250, easing: cubicOut });
 
   let cantidad = 1;
-  let tipoPrecio = "precioA";
+  let tipoPrecio = "precioa";
+  let costoVisible = false;
+
+  // Existencias state
+  let existenciasPorSucursal: any[] = [];
+  let loadingExistencias = false;
+
+  // Manual price state
+  let usarPrecioManual = false;
   let precioManual = 0;
+  let errorPrecioManual = "";
 
-  // Countdown states
-  let dias = 0,
-    horas = 0,
-    minutos = 0,
-    segundos = 0;
-  let interval: any = null;
-  let expirado = false;
-  let imagenAmpliada = false;
-
-  // ✨ NUEVA FUNCIÓN: Genera URLs optimizadas
-  function getImageUrl(
-    productId: string | number,
-    size: "small" | "medium" | "large" = "medium",
-  ) {
-    return `/api/producto-imagen/${productId}?size=${size}`;
-  }
-
-  function stopCounter() {
-    if (interval) {
-      clearInterval(interval);
-      interval = null;
-    }
-  }
-
-  function handleImageError(e: Event) {
-    const target = e.currentTarget as HTMLImageElement;
-    target.src = "/favicon.svg";
-  }
-
-  function calcularTiempoRestante() {
-    if (!producto?.vigencia) return;
-
-    const ahora = new Date().getTime();
-    const fechaVigencia = new Date(producto.vigencia).getTime();
-
-    if (isNaN(fechaVigencia)) return;
-
-    const diferencia = fechaVigencia - ahora;
-
-    if (diferencia <= 0) {
-      expirado = true;
-      stopCounter();
-      return;
-    }
-
-    expirado = false;
-    dias = Math.floor(diferencia / (1000 * 60 * 60 * 24));
-    horas = Math.floor((diferencia % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    minutos = Math.floor((diferencia % (1000 * 60 * 60)) / (1000 * 60));
-    segundos = Math.floor((diferencia % (1000 * 60)) / 1000);
-  }
-
-  $: if (producto && tipoPrecio !== "manual") {
-    precioManual = producto[tipoPrecio] || 0;
-  }
-
-  $: if (showModal && producto?.id) {
+  $: if (showModal && producto) {
     $scale = 1;
-    if (typeof document !== "undefined")
-      document.body.style.overflow = "hidden";
-
-    tipoPrecio = "precioA";
-    precioManual = producto.precioA || 0;
-    expirado = false;
-    imagenAmpliada = false;
-
-    stopCounter();
-
-    const tieneOfertaValida = Number(producto.precioo) > 0;
-    if (tieneOfertaValida && producto.vigencia) {
-      calcularTiempoRestante();
-      interval = setInterval(calcularTiempoRestante, 1000);
-    }
-  } else if (!showModal) {
+    costoVisible = false;
+    tipoPrecio = "precioa";
+    usarPrecioManual = false;
+    precioManual = producto.precioa || 0;
+    errorPrecioManual = "";
+    document.body.style.overflow = "hidden";
+    cargarExistencias();
+  } else {
     $scale = 0;
+    existenciasPorSucursal = [];
     if (typeof document !== "undefined") document.body.style.overflow = "";
-    cantidad = 1;
-    stopCounter();
+  }
+
+  async function cargarExistencias() {
+    if (!producto?.id) return;
+    loadingExistencias = true;
+    try {
+      const res = await fetch(`/api/existencias/${producto.id}`);
+      if (res.ok) {
+        existenciasPorSucursal = await res.json();
+      }
+    } catch (e) {
+      console.error("Error cargando existencias:", e);
+    } finally {
+      loadingExistencias = false;
+    }
+  }
+
+  function validarPrecioManual() {
+    const minPrecio = producto?.precioa || 0;
+    if (precioManual < minPrecio) {
+      errorPrecioManual = `El precio debe ser mayor a ${GTQ.format(minPrecio)}`;
+      return false;
+    }
+    errorPrecioManual = "";
+    return true;
+  }
+
+  function handlePrecioManualChange() {
+    if (usarPrecioManual) {
+      validarPrecioManual();
+    }
   }
 
   function close() {
@@ -103,39 +76,33 @@
   }
 
   function agregarAlCarrito() {
-    if (!producto) return;
+    let precioFinal: number;
 
-    const precioFinal =
-      tipoPrecio === "manual" ? precioManual : producto[tipoPrecio] || 0;
+    if (usarPrecioManual) {
+      if (!validarPrecioManual()) return;
+      precioFinal = precioManual;
+    } else {
+      precioFinal = producto[tipoPrecio] || 0;
+    }
 
     const carritoActual = JSON.parse(
       localStorage.getItem("cotizacion_ofit") || "[]",
     );
 
+    const nuevoItem = {
+      id: producto.id,
+      nombre: producto.nombre,
+      precio: precioFinal,
+      modelo: producto.modelo,
+      marca: producto.marca,
+      cantidad: cantidad,
+      origen: producto.origen,
+    };
+
     const index = carritoActual.findIndex((i: any) => i.id === producto.id);
-
     if (index !== -1) {
-      carritoActual[index].precio = precioFinal;
-      carritoActual[index].tipoSeleccionado = tipoPrecio;
-      carritoActual[index].cantidad = cantidad;
-
-      carritoActual[index].precioOferta = producto.precioA;
-      carritoActual[index].precioDescuento = producto.precioo;
+      carritoActual[index] = nuevoItem;
     } else {
-      const nuevoItem = {
-        id: producto.id,
-        nombre: producto.nombre,
-        precio: precioFinal,
-        precioPublico: producto.precioP,
-        precioOferta: producto.precioA,
-        precioDescuento: producto.precioo,
-        vigencia: producto.vigencia,
-        tipoSeleccionado: tipoPrecio,
-        modelo: producto.modelo,
-        marca: producto.marca,
-        cantidad: cantidad,
-        origen: producto.origen || "PROPIO",
-      };
       carritoActual.push(nuevoItem);
     }
 
@@ -143,363 +110,229 @@
     window.dispatchEvent(new CustomEvent("carrito-actualizado"));
     close();
   }
-
-  onMount(() => {
-    const handleEsc = (e: KeyboardEvent) => e.key === "Escape" && close();
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  });
-
-  onDestroy(stopCounter);
 </script>
 
 {#if showModal && producto}
-  <!-- svelte-ignore a11y_interactive_supports_focus -->
   <div
-    class="modal-overlay"
-    role="dialog"
-    aria-modal="true"
+    class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[100] flex items-center justify-center p-2 sm:p-4"
     on:click={close}
-    on:keydown={(e) => e.key === "Escape" && close()}
-    tabindex="-1"
   >
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
-      class="modal-container"
-      role="document"
+      class="bg-white w-full max-w-lg rounded-3xl overflow-hidden overflow-x-hidden shadow-2xl relative flex flex-col max-h-[95vh] sm:max-h-[90vh]"
       on:click|stopPropagation
       style="transform: scale({$scale})"
     >
       <button
         on:click={close}
-        class="modal-close-btn text-lg"
-        aria-label="Cerrar modal">×</button
+        class="absolute top-3 right-3 sm:top-4 sm:right-4 w-8 h-8 sm:w-10 sm:h-10 bg-slate-100 rounded-full font-bold text-slate-500 z-50 text-sm sm:text-base"
+        >✕</button
       >
 
-      <div class="modal-content">
-        <div class="p-4 pb-6">
-          <!-- ✨ CAMBIO 1: Imagen del modal con srcset y size medium -->
-          <button type="button" class="imagen-container w-full border-0">
-            <img
-              on:click={() => (imagenAmpliada = !imagenAmpliada)}
-              src={getImageUrl(producto.id, "medium")}
-              srcset="{getImageUrl(producto.id, 'small')} 300w,
-                      {getImageUrl(producto.id, 'medium')} 600w"
-              sizes="(max-width: 640px) 300px, 600px"
-              alt={producto.nombre}
-              class="imagen-producto"
-              loading="eager"
-              decoding="async"
-              width="600"
-              height="600"
-              on:error={handleImageError}
-            />
+      <div class="overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <!-- Imagen grande con prioridad -->
+        <div
+          class="w-full h-48 sm:h-64 bg-slate-50 rounded-2xl flex items-center justify-center p-4"
+        >
+          <img
+            src={`/api/producto-imagen/${producto.id}?size=medium`}
+            alt=""
+            class="max-h-full object-contain"
+          />
+        </div>
+
+        <!-- Info del producto compacta -->
+        <div>
+          <h2 class="text-sm font-black text-slate-800 leading-tight uppercase">
+            {producto.nombre}
+          </h2>
+          <div class="flex flex-wrap gap-2 mt-2">
+            <span
+              class="px-2 py-1 bg-slate-200 text-slate-600 text-[9px] font-black rounded uppercase"
+              >SKU: {producto.id}</span
+            >
+            <span
+              class="px-2 py-1 bg-blue-50 text-blue-600 text-[9px] font-black rounded uppercase"
+              >{producto.marca}</span
+            >
+            <span
+              class="px-2 py-1 bg-slate-100 text-slate-500 text-[9px] font-black rounded uppercase"
+              >{producto.modelo}</span
+            >
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <button
+            on:click={() => {
+              tipoPrecio = "preciop";
+              usarPrecioManual = false;
+            }}
+            class="w-full p-3 rounded-xl border-2 flex justify-between items-center {tipoPrecio ===
+              'preciop' && !usarPrecioManual
+              ? 'border-yellow-400 bg-yellow-50'
+              : 'border-slate-100'}"
+          >
+            <span class="text-[10px] font-black text-slate-400 uppercase"
+              >Normal</span
+            >
+            <span class="font-black text-slate-800"
+              >{GTQ.format(producto.preciop || 0)}</span
+            >
           </button>
 
-          <div class="flex flex-col">
-            <h2 class="text-sm font-black text-slate-800 mb-3">
-              {producto.nombre}
-            </h2>
+          <button
+            on:click={() => {
+              tipoPrecio = "precioa";
+              usarPrecioManual = false;
+            }}
+            class="w-full p-3 rounded-xl border-2 flex justify-between items-center {tipoPrecio ===
+              'precioa' && !usarPrecioManual
+              ? 'border-emerald-500 bg-emerald-50'
+              : 'border-slate-100'}"
+          >
+            <span class="text-[10px] font-black text-emerald-600 uppercase"
+              >Efectivo/Transfer</span
+            >
+            <span class="font-black text-emerald-700"
+              >{GTQ.format(producto.precioa || 0)}</span
+            >
+          </button>
 
-            <div class="flex flex-wrap gap-1.5 mb-3">
-              <span
-                class="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] font-bold rounded uppercase"
+          {#if producto.precioo > 0}
+            <button
+              on:click={() => {
+                tipoPrecio = "precioo";
+                usarPrecioManual = false;
+              }}
+              class="w-full p-3 rounded-xl border-2 flex justify-between items-center {tipoPrecio ===
+                'precioo' && !usarPrecioManual
+                ? 'border-red-500 bg-red-50'
+                : 'border-red-100'}"
+            >
+              <span class="text-[10px] font-black text-red-600 uppercase"
+                >🔥 Oferta</span
               >
-                ID: {producto.id}
-              </span>
-              <span
-                class="px-2 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-bold rounded uppercase"
+              <span class="font-black text-red-600"
+                >{GTQ.format(producto.precioo || 0)}</span
               >
-                {producto.modelo || "S/M"}
-              </span>
-              <span
-                class="px-2 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-bold rounded uppercase"
-              >
-                {producto.marca || "S/M"}
-              </span>
-            </div>
+            </button>
+          {/if}
 
-            <div class="space-y-1.5 mb-3">
-              <button
-                type="button"
-                class="w-full p-2.5 rounded-lg border flex justify-between items-center {tipoPrecio ===
-                'precioP'
-                  ? 'border-[#ffd312] bg-[#ffd312]/5 ring-1 ring-[#ffd312]'
-                  : 'border-slate-200 bg-slate-50'}"
-                on:click={() => (tipoPrecio = "precioP")}
+          <!-- Manual Price Option -->
+          <button
+            on:click={() => {
+              usarPrecioManual = true;
+            }}
+            class="w-full p-3 rounded-xl border-2 flex flex-col items-start {usarPrecioManual
+              ? 'border-purple-500 bg-purple-50'
+              : 'border-slate-100'}"
+          >
+            <div class="w-full flex justify-between items-center">
+              <span class="text-[10px] font-black text-purple-600 uppercase"
+                >💰 Precio Manual</span
               >
-                <span class="text-[9px] font-bold text-slate-400 uppercase">
-                  {Number(producto.precioo) > 0 ? "Normal" : "P. Público"}
-                </span>
-                <span class="text-sm font-bold text-slate-900">
-                  {GTQ.format(producto.precioP || 0)}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                class="w-full p-2.5 rounded-lg border flex justify-between items-center {tipoPrecio ===
-                'precioA'
-                  ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500'
-                  : 'border-slate-200 bg-slate-50'}"
-                on:click={() => (tipoPrecio = "precioA")}
-              >
-                <span class="text-[9px] font-bold text-slate-400 uppercase"
-                  >Efectivo/Transfer</span
+              {#if usarPrecioManual}
+                <span class="font-black text-purple-700"
+                  >{GTQ.format(precioManual)}</span
                 >
-                <span class="text-sm font-black text-emerald-700">
-                  {GTQ.format(producto.precioA || 0)}
-                </span>
-              </button>
-
-              {#if Number(producto.precioo) > 0}
-                <button
-                  type="button"
-                  class="w-full p-2.5 rounded-lg border-2 flex justify-between items-center {tipoPrecio ===
-                  'precioo'
-                    ? 'border-red-500 bg-gradient-to-r from-red-500 to-orange-500 ring-2 ring-red-300 shadow-md text-white'
-                    : 'border-red-400 bg-red-50 text-red-600'}"
-                  on:click={() => (tipoPrecio = "precioo")}
+              {:else}
+                <span class="text-[10px] text-slate-400"
+                  >Click para ingresar</span
                 >
-                  <span class="text-[10px] font-black uppercase">🔥 OFERTA</span
-                  >
-                  <span class="text-base font-black">
-                    {GTQ.format(producto.precioo || 0)}
-                  </span>
-                </button>
               {/if}
             </div>
+          </button>
 
-            {#if Number(producto.precioo) > 0 && producto.vigencia && !expirado}
-              <div
-                class="w-full bg-gradient-to-r from-red-600 to-orange-500 rounded-lg p-2 shadow-inner mb-3 flex items-center justify-center gap-2"
-              >
-                <span
-                  class="text-white text-[9px] font-bold uppercase tracking-tighter"
-                  >Termina en:</span
-                >
-                <div class="flex gap-1 items-center">
-                  {#if dias > 0}
-                    <div
-                      class="bg-black/20 px-1.5 py-0.5 rounded text-white text-xs font-black tabular-nums"
-                    >
-                      {dias}d
-                    </div>
-                  {/if}
-                  <div
-                    class="bg-black/20 px-1.5 py-0.5 rounded text-white text-xs font-black tabular-nums"
-                  >
-                    {horas.toString().padStart(2, "0")}:{minutos
-                      .toString()
-                      .padStart(2, "0")}:<span
-                      class="animate-count inline-block"
-                      >{segundos.toString().padStart(2, "0")}</span
-                    >
-                  </div>
-                </div>
-              </div>
-            {/if}
-
-            <div class="border-t border-slate-100 pt-3">
-              <h3
-                class="text-[9px] font-black text-slate-400 uppercase mb-2 flex items-center gap-1.5"
-              >
-                <span class="w-1.5 h-1.5 bg-blue-500 rounded-full"></span> Stock
-                por Agencia
-              </h3>
-              {#if loadingExistencias}
-                <div class="animate-pulse h-8 bg-slate-100 rounded-lg"></div>
-              {:else if existenciasPorSucursal.length > 0}
-                <div class="grid grid-cols-2 gap-1.5">
-                  {#each existenciasPorSucursal as suc}
-                    <div
-                      class="flex justify-between items-center p-2 bg-white border border-slate-100 rounded-lg shadow-sm"
-                    >
-                      <span
-                        class="text-[9px] font-bold text-slate-600 uppercase truncate"
-                        >{suc.ubicacion}</span
-                      >
-                      <span class="text-xs font-black text-blue-700"
-                        >{Math.floor(suc.existencia)}</span
-                      >
-                    </div>
-                  {/each}
-                </div>
-              {:else}
-                <p class="text-center text-slate-400 italic text-[10px] py-2">
-                  Sin existencias registradas.
+          {#if usarPrecioManual}
+            <div class="p-3 bg-purple-50 rounded-xl space-y-2">
+              <label class="text-[10px] font-black text-purple-600 uppercase">
+                Ingresar precio (mín: {GTQ.format(producto.precioa || 0)})
+              </label>
+              <input
+                type="number"
+                bind:value={precioManual}
+                on:input={handlePrecioManualChange}
+                min={producto.precioa || 0}
+                step="0.01"
+                class="w-full p-2 rounded-lg border-2 {errorPrecioManual
+                  ? 'border-red-400'
+                  : 'border-purple-200'} font-black text-lg text-center"
+              />
+              {#if errorPrecioManual}
+                <p class="text-[10px] font-bold text-red-500">
+                  {errorPrecioManual}
                 </p>
               {/if}
             </div>
-          </div>
+          {/if}
+        </div>
+
+        {#if producto.costo}
+          <!-- Botón ultra discreto para ver costo -->
+          <button
+            on:click={() => (costoVisible = !costoVisible)}
+            class="absolute bottom-20 left-3 w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] text-slate-300 hover:bg-slate-200 transition-opacity opacity-30 hover:opacity-100"
+            title="Info"
+          >
+            ●
+          </button>
+
+          {#if costoVisible}
+            <div
+              class="absolute bottom-20 left-12 bg-slate-900/95 text-white px-3 py-2 rounded-xl text-sm font-black shadow-xl z-50"
+            >
+              {GTQ.format(producto.costo)}
+            </div>
+          {/if}
+        {/if}
+
+        <div class="pt-4 border-t border-slate-100">
+          <h3 class="text-[10px] font-black text-slate-400 uppercase mb-2">
+            Existencias por Sucursal
+          </h3>
+          {#if loadingExistencias}
+            <div class="text-center py-4 text-slate-400 text-sm">
+              Cargando existencias...
+            </div>
+          {:else if existenciasPorSucursal.length === 0}
+            <div class="text-center py-4 text-slate-400 text-sm">
+              Sin existencias registradas
+            </div>
+          {:else}
+            <div class="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+              {#each existenciasPorSucursal as suc}
+                <div
+                  class="p-2 bg-slate-50 rounded-lg flex justify-between items-center"
+                >
+                  <span
+                    class="text-[9px] font-bold text-slate-500 uppercase truncate"
+                    >{suc.ubicacion}</span
+                  >
+                  <span class="text-xs font-black text-blue-600"
+                    >{Math.floor(suc.existencia)}</span
+                  >
+                </div>
+              {/each}
+            </div>
+          {/if}
         </div>
       </div>
 
-      <div class="modal-footer">
-        <div class="flex gap-2 p-2 bg-slate-900 rounded-xl">
-          <div class="flex flex-col items-center px-2">
-            <span class="text-[8px] text-white/50 font-bold uppercase mb-0.5"
-              >Cant.</span
-            >
-            <input
-              type="number"
-              bind:value={cantidad}
-              min="1"
-              class="w-12 bg-white/10 text-white font-black text-center rounded-lg py-1.5 text-sm outline-none"
-            />
-          </div>
-          <button
-            type="button"
-            on:click={agregarAlCarrito}
-            class="flex-1 bg-[#ffd312] text-[#3d3b3e] font-black uppercase text-[10px] py-2.5 rounded-lg active:scale-95 transition-transform"
-          >
-            Agregar a Cotización
-          </button>
-        </div>
+      <div class="p-3 sm:p-4 bg-white border-t border-slate-100 flex gap-3">
+        <input
+          type="number"
+          bind:value={cantidad}
+          min="1"
+          class="w-14 sm:w-16 bg-slate-100 rounded-xl text-center font-black py-3"
+        />
+        <button
+          on:click={agregarAlCarrito}
+          disabled={usarPrecioManual && !!errorPrecioManual}
+          class="flex-1 bg-yellow-400 py-3 sm:py-4 rounded-xl font-black text-[10px] uppercase shadow-lg shadow-yellow-400/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Agregar a Cotización
+        </button>
       </div>
     </div>
   </div>
-
-  {#if imagenAmpliada}
-    <!-- ✨ CAMBIO 2: Imagen ampliada en tamaño LARGE (1200x1200) -->
-    <div
-      class="imagen-overlay"
-      role="button"
-      tabindex="0"
-      on:click={() => (imagenAmpliada = false)}
-      on:keydown={(e) => e.key === "Escape" && (imagenAmpliada = false)}
-    >
-      <img
-        src={getImageUrl(producto.id, "large")}
-        srcset="{getImageUrl(producto.id, 'medium')} 600w,
-                {getImageUrl(producto.id, 'large')} 1200w"
-        sizes="90vw"
-        alt={producto.nombre}
-        class="imagen-ampliada"
-        loading="eager"
-        decoding="async"
-        on:error={handleImageError}
-      />
-    </div>
-  {/if}
 {/if}
-
-<style>
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background-color: rgba(15, 23, 42, 0.9);
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-  }
-
-  .modal-container {
-    background-color: white;
-    width: 100%;
-    height: 100%;
-    max-width: 100%;
-    max-height: 100%;
-    overflow: hidden;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-  }
-
-  @media (min-width: 640px) {
-    .modal-container {
-      height: auto;
-      border-radius: 1rem;
-      max-width: 42rem;
-      max-height: 90vh;
-    }
-  }
-
-  .modal-close-btn {
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    z-index: 9999;
-    background-color: rgb(198, 198, 198);
-    color: rgb(100, 116, 139);
-    width: 4rem;
-    height: 4rem;
-    border-radius: 9999px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    border: none;
-    cursor: pointer;
-  }
-
-  .modal-content {
-    overflow-y: auto;
-    flex: 1;
-    overscroll-behavior: contain;
-  }
-
-  .modal-footer {
-    position: sticky;
-    bottom: 0;
-    background-color: white;
-    border-top: 1px solid rgb(241, 245, 249);
-    padding: 0.75rem;
-  }
-
-  .animate-count {
-    animation: count 1s infinite;
-  }
-
-  @keyframes count {
-    0%,
-    100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.1);
-    }
-  }
-
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-  }
-
-  .imagen-container {
-    background-color: rgb(248, 250, 252);
-    border-radius: 0.75rem;
-    padding: 0.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 9rem;
-    margin-bottom: 0.75rem;
-    cursor: zoom-in;
-  }
-
-  .imagen-producto {
-    max-height: 100%;
-    max-width: 100%;
-    object-fit: contain;
-  }
-
-  .imagen-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-    background-color: rgba(0, 0, 0, 0.95);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: zoom-out;
-  }
-
-  .imagen-ampliada {
-    max-width: 90vw;
-    max-height: 90vh;
-    object-fit: contain;
-  }
-</style>

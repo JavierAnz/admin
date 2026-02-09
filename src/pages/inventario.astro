@@ -1,8 +1,9 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import AdminNavbar from "../components/AdminNavbar.astro";
 import Buscador from "../components/Buscador.svelte";
 import sql from "mssql";
-import  SpeedInsights  from "@vercel/speed-insights/astro"
+import SpeedInsights from "@vercel/speed-insights/astro";
 
 const agenciaId = Astro.cookies.get("agencia_id")?.value;
 let nombreAgencia = "";
@@ -37,10 +38,20 @@ if (agenciaId) {
 ---
 
 <Layout title="Inventario | OFIT">
-  <SpeedInsights/>
-  <Buscador
-    client:load
-    idAgenciaUsuario={agenciaId}
-    nombreAgencia={nombreAgencia}
-  />
+  <div class="inventario-page">
+    <AdminNavbar />
+    <SpeedInsights />
+    <Buscador
+      client:load
+      idAgenciaUsuario={agenciaId}
+      nombreAgencia={nombreAgencia}
+    />
+  </div>
 </Layout>
+
+<style is:global>
+  .inventario-page {
+    min-height: 100vh;
+    background: #f8fafc;
+  }
+</style>

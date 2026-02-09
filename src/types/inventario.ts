@@ -4,10 +4,15 @@ export interface ProductoUniversal {
   existencia: number;
   preciop: number;
   precioa: number;
-  preciob: number;
+  precioo: number;
+  costo?: number;
   marca: string;
+  depto: string;
+  vigencia: string;
+  ultimaCompra: string;
+  direccionWeb: string;
   modelo?: string;
-  Barras?: string;
+  barras?: string;
   origen: 'PROPIO' | 'EXTERNO'; // PROPIO = Tu SQL, EXTERNO = APIs/Excel
   proveedorNombre: string;
   entregaInmediata: boolean;

@@ -167,7 +167,7 @@ export const GET: APIRoute = async ({ params, request }) => {
     const metadata = await pipeline.metadata();
 
     // Auto-rotación EXIF
-    pipeline = pipeline.rotate();
+    pipeline = pipeline.rotate().flatten({ background: '#ffffff' });
 
     // Resize solo si es necesario
     if (metadata.width && metadata.height) {
