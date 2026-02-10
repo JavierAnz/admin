@@ -25,6 +25,7 @@ export async function getAllInventory(
         preciop: p.precioP || 0,
         precioa: p.precioA || 0,
         precioo: p.precioo || 0,
+        numeroParte: p.numeroParte,
         costo: p.costo || 0,
         vigencia: p.vigencia,
         marca: p.marca,

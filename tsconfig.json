@@ -5,6 +5,7 @@
     "src/**/*"
   ],
   "exclude": [
-    "dist"
+    "dist",
+    "src/components/buscadorviejo.astro"
   ]
 }

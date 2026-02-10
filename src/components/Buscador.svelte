@@ -263,7 +263,7 @@
               {item.nombre}
             </h4>
             <p class="text-[9px] text-slate-400 font-bold mt-1 uppercase">
-              SKU: {item.id} | {item.marca}
+              SKU: {item.id} | {item.marca} | {item.numeroParte}
             </p>
           </div>
           <div class="text-right">
@@ -333,8 +333,8 @@
               </button>
               <div class="flex-1 flex flex-col">
                 <span class="text-[8px] font-black uppercase"
-                  >COD: {item.id}</span
-                >
+                  >COD: {item.id}
+                </span>
                 <span class="text-[11px] font-bold leading-tight"
                   >{item.modelo}</span
                 >

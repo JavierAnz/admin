@@ -5,6 +5,7 @@ export interface ProductoUniversal {
   preciop: number;
   precioa: number;
   precioo: number;
+  numeroParte?: string;
   costo?: number;
   marca: string;
   depto: string;

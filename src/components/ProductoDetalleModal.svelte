@@ -150,6 +150,12 @@
               class="px-2 py-1 bg-slate-200 text-slate-600 text-[9px] font-black rounded uppercase"
               >SKU: {producto.id}</span
             >
+            {#if producto.numeroParte}
+              <span
+                class="px-2 py-1 bg-slate-200 text-slate-600 text-[9px] font-black rounded uppercase"
+                >P/N: {producto.numeroParte}</span
+              >
+            {/if}
             <span
               class="px-2 py-1 bg-blue-50 text-blue-600 text-[9px] font-black rounded uppercase"
               >{producto.marca}</span

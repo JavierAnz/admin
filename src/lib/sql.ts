@@ -19,7 +19,7 @@ export async function buscarLocal(
         const palabras = queryRaw.trim().split(/\s+/).filter(p => p.length > 0);
         const condicionesBusqueda = palabras.map((p, i) => {
             request.input(`p${i}`, sql.VarChar, `%${p}%`);
-            return `(v.Nombre LIKE @p${i} OR v.Codigo LIKE @p${i} OR v.Marca LIKE @p${i} OR v.Modelo LIKE @p${i} OR v.Barras LIKE @p${i})`;
+            return `(v.Nombre LIKE @p${i} OR v.Codigo LIKE @p${i} OR v.Marca LIKE @p${i} OR v.Modelo LIKE @p${i} OR v.Barras LIKE @p${i} OR v.NUMERO_PARTE LIKE @p${i})`;
         }).join(' AND ');
 
         // 2. Definición de columnas base (Mapeo limpio para evitar espacios)
@@ -27,7 +27,7 @@ export async function buscarLocal(
             "v.Codigo as id", "v.Nombre as nombre", "v.Marca as marca", "v.Modelo as modelo",
             "v.DIRECCION_WEB as direccionWeb", "v.Depto as depto", "v.[Precio P] as precioP",
             "v.[Precio A] as precioA", "v.Barras as barras", "v.[Precio O] as precioo",
-            "v.Vigencia as vigencia", "v.ultimaCompra"
+            "v.Vigencia as vigencia", "v.ultimaCompra", "v.NUMERO_PARTE as numeroParte"
         ];
 
         // RIGOR: Inyectar costo solo si tiene el permiso 1230 definido en brand.ts
