@@ -11,6 +11,13 @@
     currency: "GTQ",
   });
 
+  function formatFechaMesAnio(fecha: string): string {
+    if (!fecha) return "S/N";
+    const d = new Date(fecha);
+    if (isNaN(d.getTime())) return "S/N";
+    return d.toISOString().slice(0, 10);
+  }
+
   let busqueda = "";
   let productos: any[] = [];
   let loading = false;
@@ -22,6 +29,7 @@
     precio: null as "asc" | "desc" | null,
     existencia: null as "asc" | "desc" | null,
     precioo: null as "asc" | "desc" | null,
+    ultimaCompra: null as "asc" | "desc" | null,
   };
 
   let showModal = false,
@@ -59,7 +67,6 @@
       window.removeEventListener("carrito-actualizado", cargarCarrito);
   });
 
-  // ✨ SOLUCIÓN AL ERROR: Definición de getImageUrl
   function getImageUrl(
     productId: string | number,
     size: "thumb" | "small" | "medium" = "small",
@@ -90,18 +97,27 @@
     timer = setTimeout(realizarBusqueda, 300);
   }
 
-  // Lógica de ordenamiento rigurosa
   $: productosOrdenados = (() => {
     let copia = [...productos];
-    if (!filtros.precio && !filtros.existencia && !filtros.precioo)
+    if (
+      !filtros.precio &&
+      !filtros.existencia &&
+      !filtros.precioo &&
+      !filtros.ultimaCompra
+    )
       return productos;
     return copia.sort((a, b) => {
-      // Filtro de ofertas: primero los que tienen precioo > 0
       if (filtros.precioo) {
         const aOferta = (a.precioo || 0) > 0 ? 1 : 0;
         const bOferta = (b.precioo || 0) > 0 ? 1 : 0;
-        const diff = bOferta - aOferta; // Ofertas primero
+        const diff = bOferta - aOferta;
         if (diff !== 0) return diff;
+      }
+      if (filtros.ultimaCompra) {
+        const dateA = a.ultimaCompra ? new Date(a.ultimaCompra).getTime() : 0;
+        const dateB = b.ultimaCompra ? new Date(b.ultimaCompra).getTime() : 0;
+        const diff = dateA - dateB;
+        if (diff !== 0) return filtros.ultimaCompra === "asc" ? diff : -diff;
       }
       if (filtros.precio) {
         const diff = (a.precioa || 0) - (b.precioa || 0);
@@ -207,6 +223,14 @@
             : 'bg-slate-100 text-slate-500'}">Más Stock</button
         >
         <button
+          on:click={() => toggleFiltro("ultimaCompra", "desc")}
+          class="flex-shrink-0 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all {filtros.ultimaCompra ===
+          'desc'
+            ? 'bg-slate-800 text-yellow-400'
+            : 'bg-slate-100 text-slate-500'}">Últ. Compra ↓</button
+        >
+
+        <button
           on:click={() => toggleFiltro("precioo", "asc")}
           class="flex-shrink-0 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase border-2 border-red-400 text-red-500 {filtros.precioo ===
           'asc'
@@ -263,7 +287,9 @@
               {item.nombre}
             </h4>
             <p class="text-[9px] text-slate-400 font-bold mt-1 uppercase">
-              SKU: {item.id} | {item.marca} | {item.numeroParte}
+              SKU: {item.id} | {item.marca ? item.marca : "S/N"} | {item.numeroParte
+                ? item.numeroParte
+                : "S/N"} | {formatFechaMesAnio(item.ultimaCompra)}
             </p>
           </div>
           <div class="text-right">

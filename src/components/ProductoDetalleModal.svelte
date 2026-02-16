@@ -116,10 +116,17 @@
   <div
     class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[100] flex items-center justify-center p-2 sm:p-4"
     on:click={close}
+    on:keydown={(e) => e.key === "Escape" && close()}
+    role="button"
+    tabindex="-1"
   >
     <div
       class="bg-white w-full max-w-lg rounded-3xl overflow-hidden overflow-x-hidden shadow-2xl relative flex flex-col max-h-[95vh] sm:max-h-[90vh]"
       on:click|stopPropagation
+      on:keydown|stopPropagation
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
       style="transform: scale({$scale})"
     >
       <button
@@ -251,10 +258,14 @@
 
           {#if usarPrecioManual}
             <div class="p-3 bg-purple-50 rounded-xl space-y-2">
-              <label class="text-[10px] font-black text-purple-600 uppercase">
+              <label
+                for="precioManualInput"
+                class="text-[10px] font-black text-purple-600 uppercase"
+              >
                 Ingresar precio (mín: {GTQ.format(producto.precioa || 0)})
               </label>
               <input
+                id="precioManualInput"
                 type="number"
                 bind:value={precioManual}
                 on:input={handlePrecioManualChange}

@@ -26,7 +26,7 @@ export const GET: APIRoute = async ({ request }) => {
         }).join(' AND ');
 
         const result = await req.query(`
-            SELECT TOP 50 
+            SELECT  
                 Cod_Prod as id, 
                 Nombre_Prod as nombre, 
                 Descr_Prod as descripcion, 

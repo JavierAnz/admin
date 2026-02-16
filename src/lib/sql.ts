@@ -30,7 +30,7 @@ export async function buscarLocal(
             "v.Vigencia as vigencia", "v.ultimaCompra", "v.NUMERO_PARTE as numeroParte"
         ];
 
-        // RIGOR: Inyectar costo solo si tiene el permiso 1230 definido en brand.ts
+        // Inyectar costo solo si tiene el permiso 1230 definido en brand.ts
         if (userPerms.includes(PERMS.VIEW_COSTS)) {
             columns.push("v.costo as costo");
         }
@@ -48,7 +48,7 @@ export async function buscarLocal(
         INNER JOIN rel_productos_agencias r WITH (NOLOCK) ON v.Codigo = r.cod_prod 
         AND r.COD_AGEN = @agencia AND r.existencia > 0
         ${whereClause}
-        ORDER BY v.Nombre ASC`;
+        ORDER BY v.ultimaCompra DESC`;
         } else {
             query = `
         SELECT ${selectClause}, 
@@ -63,7 +63,7 @@ export async function buscarLocal(
           WHERE r3.cod_prod = v.Codigo AND r3.existencia > 0
           AND (a2.ES_SALA_VENTAS = 1 OR a2.RECIBE_COMPRAS = 1)
         )
-        ORDER BY v.Nombre ASC`;
+        ORDER BY v.ultimaCompra asc`;
         }
 
         const result = await request.query(query);

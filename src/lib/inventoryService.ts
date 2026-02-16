@@ -35,11 +35,11 @@ export async function getAllInventory(
         proveedorNombre: 'OFIT',
         entregaInmediata: true,
         depto: '',
-        ultimaCompra: '',
+        ultimaCompra: p.ultimaCompra,
         direccionWeb: ''
       };
 
-      // RIGOR: El objeto final solo lleva 'costo' si el permiso existe
+      // El objeto final solo lleva 'costo' si el permiso existe
       if (userPerms.includes(PERMS.VIEW_COSTS)) {
         prod.costo = p.costo || 0;
       }
