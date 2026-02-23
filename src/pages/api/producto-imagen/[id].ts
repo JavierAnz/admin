@@ -138,7 +138,7 @@ export const GET: APIRoute = async ({ params, request }) => {
         headers: {
           'Content-Type': 'image/webp',
           'Content-Length': placeholderBuffer.length.toString(),
-          'Cache-Control': 'public, max-age=86400', // Cache 1 día
+          'Cache-Control': 'public, max-age=86400, s-maxage=86400', // Cache 1 día (CDN + browser)
           'X-Image-Status': 'placeholder'
         }
       });
@@ -155,7 +155,7 @@ export const GET: APIRoute = async ({ params, request }) => {
         status: 304,
         headers: {
           'ETag': etag,
-          'Cache-Control': 'public, max-age=31536000, immutable'
+          'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable'
         }
       });
     }
@@ -227,7 +227,7 @@ export const GET: APIRoute = async ({ params, request }) => {
         'ETag': etag,
 
         // Cache agresivo: 1 año inmutable
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable',
 
         // CDN cache: 7 días con revalidación
         'CDN-Cache-Control': 'public, s-maxage=604800, stale-while-revalidate=2592000',

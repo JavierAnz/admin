@@ -418,7 +418,6 @@
     </button>
   </div>
 {/if}
-```
 
 <style>
   .no-scrollbar::-webkit-scrollbar {

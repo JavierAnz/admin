@@ -75,7 +75,7 @@ export const GET: APIRoute = async ({ params, request }) => {
             return new Response(new Uint8Array(placeholder), {
                 headers: {
                     'Content-Type': 'image/webp',
-                    'Cache-Control': 'public, max-age=3600',
+                    'Cache-Control': 'public, max-age=3600, s-maxage=3600',
                     'X-Image-Status': 'placeholder'
                 }
             });
@@ -101,7 +101,7 @@ export const GET: APIRoute = async ({ params, request }) => {
             headers: {
                 'Content-Type': 'image/webp',
                 'Content-Length': optimizedBuffer.length.toString(),
-                'Cache-Control': 'public, max-age=86400',
+                'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable',
                 'X-Image-Status': 'optimized'
             }
         });

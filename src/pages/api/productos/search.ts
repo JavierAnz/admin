@@ -35,7 +35,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
             status: 200,
             headers: {
                 'Content-Type': 'application/json',
-                'Cache-Control': 'public, max-age=60' // Cache de 1 min para performance
+                'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' // Edge CDN cache: 60s fresco, 120s stale-while-revalidate
             }
         });
 
