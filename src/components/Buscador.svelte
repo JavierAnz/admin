@@ -23,6 +23,7 @@
   let loading = false;
   let soloMiSucursal = false;
   let timer: any;
+  let activeId: number | string | null = null; // Feedback visual INP
 
   // Filtros restaurados
   let filtros = {
@@ -96,6 +97,9 @@
     clearTimeout(timer);
     timer = setTimeout(realizarBusqueda, 300);
   }
+
+  // Devuelve un array de N elementos para renderizar los skeleton cards
+  $: skeletonItems = Array.from({ length: BRAND_CONFIG.skeletons.cardCount });
 
   $: productosOrdenados = (() => {
     let copia = [...productos];
@@ -241,72 +245,103 @@
     {/if}
   </div>
 
-  <div class="grid grid-cols-1 gap-3">
-    {#each productosOrdenados as item (item.id)}
-      <button
-        type="button"
-        on:click={() => {
-          selProd = { ...item };
-          showModal = true;
-        }}
-        class="bg-white p-4 rounded-2xl border transition-all cursor-pointer active:scale-95 text-left w-full relative overflow-hidden {item.precioo >
-        0
-          ? 'border-2 border-red-400 shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30'
-          : 'border border-slate-100 shadow-sm hover:border-[#ffd312]'}"
-      >
-        {#if item.precioo > 0}
-          <div
-            class="absolute top-2 right-2 bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase shadow-md z-10 flex items-center gap-1"
-          >
-            <span>🔥</span>
-            <span>OFERTA</span>
-          </div>
-          <div
-            class="absolute inset-0 bg-gradient-to-r from-transparent via-red-500/5 to-transparent animate-shimmer-card"
-          ></div>
-        {/if}
-
-        <div class="flex items-center gap-4 relative z-[5]">
-          <div
-            class="w-20 h-20 bg-slate-50 rounded-xl flex-shrink-0 flex items-center justify-center p-2 overflow-hidden"
-          >
-            <img
-              src={getImageUrl(item.id, "thumb")}
-              alt={item.nombre}
-              class="max-h-full max-w-full object-contain"
-              loading="lazy"
-            />
-          </div>
-          <div class="flex-1 min-w-0">
-            <h3 class="text-[9px] font-black text-slate-400 uppercase">
-              {item.modelo || "S/M"}
-            </h3>
-            <h4
-              class="text-sm font-black text-slate-800 uppercase truncate leading-tight"
-            >
-              {item.nombre}
-            </h4>
-            <p class="text-[9px] text-slate-400 font-bold mt-1 uppercase">
-              SKU: {item.id} | {item.marca ? item.marca : "S/N"} | {item.numeroParte
-                ? item.numeroParte
-                : "S/N"} | {formatFechaMesAnio(item.ultimaCompra)}
-            </p>
-          </div>
-          <div class="text-right">
-            <div class="text-sm font-black text-slate-900">
-              {GTQ.format(item.preciop || 0)}
+  <div
+    class="grid grid-cols-1 gap-3"
+    style="min-height: {BRAND_CONFIG.skeletons.resultsMinHeight}"
+  >
+    {#if loading}
+      <!-- Skeleton cards: mismo alto y ancho que las tarjetas reales → CLS = 0 -->
+      {#each skeletonItems as _}
+        <div
+          class="product-card bg-white rounded-2xl border border-slate-100 p-4 animate-pulse"
+        >
+          <div class="flex items-center gap-4">
+            <div class="w-20 h-20 bg-slate-200 rounded-xl flex-shrink-0"></div>
+            <div class="flex-1 space-y-2">
+              <div class="h-3 bg-slate-200 rounded w-1/4"></div>
+              <div class="h-4 bg-slate-200 rounded w-3/4"></div>
+              <div class="h-3 bg-slate-200 rounded w-1/2"></div>
             </div>
-            <div
-              class="text-[9px] font-black mt-1 {item.existencia > 0
-                ? 'text-blue-600'
-                : 'text-red-400'} uppercase"
-            >
-              ● {Math.floor(item.existencia)} DISP.
+            <div class="text-right space-y-2">
+              <div class="h-4 bg-slate-200 rounded w-16"></div>
+              <div class="h-3 bg-slate-200 rounded w-12"></div>
             </div>
           </div>
         </div>
-      </button>
-    {/each}
+      {/each}
+    {:else}
+      {#each productosOrdenados as item (item.id)}
+        <button
+          type="button"
+          on:click={() => {
+            activeId = item.id; // feedback visual instantáneo (INP)
+            selProd = { ...item };
+            showModal = true;
+          }}
+          class="product-card bg-white p-4 rounded-2xl border transition-all cursor-pointer text-left w-full relative overflow-hidden
+          {activeId === item.id ? 'scale-[0.98]' : 'active:scale-95'}
+          {item.precioo > 0
+            ? 'border-2 border-red-400 shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30'
+            : 'border border-slate-100 shadow-sm hover:border-[#ffd312]'}"
+        >
+          {#if item.precioo > 0}
+            <div
+              class="absolute top-2 right-2 bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase shadow-md z-10 flex items-center gap-1"
+            >
+              <span>🔥</span>
+              <span>OFERTA</span>
+            </div>
+            <div
+              class="absolute inset-0 bg-gradient-to-r from-transparent via-red-500/5 to-transparent animate-shimmer-card"
+            ></div>
+          {/if}
+
+          <div class="flex items-center gap-4 relative z-[5]">
+            <!-- Contenedor cuadrado fijo → reserva 80x80px antes de que cargue la imagen → CLS = 0 -->
+            <div
+              class="img-aspect-square w-20 h-20 bg-slate-50 rounded-xl flex-shrink-0 p-2"
+            >
+              <img
+                src={getImageUrl(item.id, "thumb")}
+                alt={item.nombre}
+                width={BRAND_CONFIG.dimensions.thumbSize}
+                height={BRAND_CONFIG.dimensions.thumbSize}
+                class="max-h-full max-w-full object-contain"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+            <div class="flex-1 min-w-0">
+              <h3 class="text-[9px] font-black text-slate-400 uppercase">
+                {item.modelo || "S/M"}
+              </h3>
+              <h4
+                class="text-sm font-black text-slate-800 uppercase truncate leading-tight"
+              >
+                {item.nombre}
+              </h4>
+              <p class="text-[9px] text-slate-400 font-bold mt-1 uppercase">
+                SKU: {item.id} | {item.marca ? item.marca : "S/N"} | {item.numeroParte
+                  ? item.numeroParte
+                  : "S/N"} | {formatFechaMesAnio(item.ultimaCompra)}
+              </p>
+            </div>
+            <div class="text-right">
+              <div class="text-sm font-black text-slate-900">
+                {GTQ.format(item.preciop || 0)}
+              </div>
+              <div
+                class="text-[9px] font-black mt-1 {item.existencia > 0
+                  ? 'text-blue-600'
+                  : 'text-red-400'} uppercase"
+              >
+                ● {Math.floor(item.existencia)} DISP.
+              </div>
+            </div>
+          </div>
+        </button>
+      {/each}
+    {/if}
   </div>
 </div>
 

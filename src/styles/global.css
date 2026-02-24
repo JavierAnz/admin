@@ -1,1 +1,42 @@
 @import "tailwindcss";
+
+/* ─── Fuente de Marca ─────────────────────────────────────── */
+/* font-display: swap → texto visible con fuente del sistema
+   mientras Inter se descarga; elimina FOIT y reduce CLS      */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiJ-Ek-_EeA.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ─── Tokens de Marca para Tailwind v4 ───────────────────── */
+/* Expone: text-brand-yellow, bg-brand-dark, border-brand-red, etc.
+   Elimina literales como text-yellow-400 que fuerzan recalcular estilos */
+@theme {
+  --color-brand-yellow: #ffd312;
+  --color-brand-dark:   #3d3b3e;
+  --color-brand-red:    #e91b27;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ─── Utilidad: Contenedor cuadrado con aspecto fijo ────── */
+/* Reserva el espacio antes de que cargue la imagen → CLS = 0 */
+.img-aspect-square {
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ─── Optimización de Renderizado Fuera de Pantalla ──────── */
+/* content-visibility: auto → el browser omite el layout/paint
+   de tarjetas no visibles; mejora INP al reducir trabajo en main thread */
+.product-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 88px; /* altura estimada de la tarjeta */
+}

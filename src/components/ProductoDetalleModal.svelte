@@ -142,7 +142,11 @@
         >
           <img
             src={`/api/producto-imagen/${producto.id}?size=medium`}
-            alt=""
+            alt={producto.nombre}
+            width={BRAND_CONFIG.dimensions.thumbSize * 5}
+            height={BRAND_CONFIG.dimensions.modalImageHeight}
+            fetchpriority="high"
+            loading="eager"
             class="max-h-full object-contain"
           />
         </div>

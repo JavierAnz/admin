@@ -1,0 +1,6 @@
+{
+    // Desactiva la validación del linter CSS nativo de VS Code.
+    // @theme es una directiva válida de Tailwind v4, no del spec CSS estándar.
+    "css.validate": false,
+    "scss.validate": false
+}
