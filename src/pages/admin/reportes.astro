@@ -1,0 +1,307 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import AdminNavbar from "../../components/AdminNavbar.astro";
+import { BRAND_CONFIG } from "../../brand/brand";
+
+const embedUrl = BRAND_CONFIG.powerBiEmbedUrl;
+---
+
+<Layout title="Reportes Power BI | OFIT">
+  <div class="reportes-page">
+    <AdminNavbar />
+    <main class="reportes-content">
+
+      {embedUrl ? (
+        <div class="pbi-wrapper">
+          <div class="pbi-header">
+            <div class="pbi-title">
+              <!-- Icono Power BI oficial -->
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="24" height="24" rx="4" fill="#F2C811"/>
+                <rect x="5" y="14" width="3" height="5" rx="1" fill="#3D3B3E"/>
+                <rect x="10.5" y="10" width="3" height="9" rx="1" fill="#3D3B3E"/>
+                <rect x="16" y="6" width="3" height="13" rx="1" fill="#3D3B3E"/>
+              </svg>
+              <span>Reporte Power BI</span>
+            </div>
+            <div class="pbi-actions">
+              <button id="btn-refresh" class="pbi-btn" title="Actualizar reporte">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 4v6h6M23 20v-6h-6"/>
+                  <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>
+                </svg>
+                <span>Actualizar</span>
+              </button>
+              <button id="btn-fullscreen" class="pbi-btn" title="Pantalla completa">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                </svg>
+                <span>Pantalla completa</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="pbi-container" id="pbi-container">
+            <div class="pbi-loading" id="pbi-loading">
+              <div class="loading-spinner"></div>
+              <p>Cargando reporte…</p>
+            </div>
+            <iframe
+              id="pbi-iframe"
+              src={embedUrl}
+              title="Reporte Power BI OFIT"
+              allowfullscreen
+              class="pbi-iframe"
+              loading="eager"
+            ></iframe>
+          </div>
+        </div>
+      ) : (
+        <div class="pbi-empty">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="#cbd5e1" stroke-width="1.5"/>
+            <path d="M12 8v4m0 4h.01" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <h2>URL de reporte no configurada</h2>
+          <p>Añade la variable de entorno <code>POWERBI_EMBED_URL</code> con la URL de embed de tu reporte Power BI.</p>
+          <ol>
+            <li>Abre el reporte en <strong>Power BI Service</strong></li>
+            <li>Menú <strong>Archivo → Insertar informe → Sitio web o portal</strong></li>
+            <li>Copia la URL del cuadro <em>"Código de inserción seguro"</em></li>
+            <li>Pégala en <code>.env</code>: <code>POWERBI_EMBED_URL=https://app.powerbi.com/view?r=eyJrIjoiZjgwODMwOWItNTZhOS00MjMwLWJiNGItZmMxY2U1ZDhjMjU4IiwidCI6Ijk0NzhkNzI5LTdiNDEtNGU3YS1hODhiLTExOTkyZGUwMzg5MSIsImMiOjZ9</code></li>
+          </ol>
+        </div>
+      )}
+
+    </main>
+  </div>
+</Layout>
+
+<script>
+  // Oculta el spinner cuando el iframe termina de cargar
+  const iframe = document.getElementById("pbi-iframe") as HTMLIFrameElement | null;
+  const loading = document.getElementById("pbi-loading");
+
+  if (iframe && loading) {
+    iframe.addEventListener("load", () => {
+      loading.style.opacity = "0";
+      setTimeout(() => { loading.style.display = "none"; }, 300);
+    });
+  }
+
+  // Botón actualizar: recarga el src del iframe
+  document.getElementById("btn-refresh")?.addEventListener("click", () => {
+    if (!iframe) return;
+    const src = iframe.src;
+    if (loading) {
+      loading.style.display = "flex";
+      loading.style.opacity = "1";
+    }
+    iframe.src = "";
+    setTimeout(() => { iframe.src = src; }, 100);
+  });
+
+  // Botón fullscreen nativo del navegador
+  document.getElementById("btn-fullscreen")?.addEventListener("click", () => {
+    const container = document.getElementById("pbi-container");
+    if (!container) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      container.requestFullscreen?.();
+    }
+  });
+</script>
+
+<style>
+  .reportes-page {
+    min-height: 100vh;
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .reportes-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    max-width: 1600px;
+    width: 100%;
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+
+  /* ── Wrapper principal ── */
+  .pbi-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    overflow: hidden;
+    min-height: calc(100vh - 120px);
+  }
+
+  /* ── Header con título y botones ── */
+  .pbi-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1.25rem;
+    background: linear-gradient(135deg, #3d3b3e 0%, #2a292b 100%);
+    border-bottom: 3px solid #ffd312;
+  }
+
+  .pbi-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: white;
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .pbi-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .pbi-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.85rem;
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.85);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: 0.02em;
+  }
+
+  .pbi-btn:hover {
+    background: rgba(255, 211, 18, 0.15);
+    color: #ffd312;
+    border-color: rgba(255, 211, 18, 0.4);
+  }
+
+  .pbi-btn svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
+
+  /* ── Contenedor del iframe ── */
+  .pbi-container {
+    flex: 1;
+    position: relative;
+    min-height: 600px;
+  }
+
+  .pbi-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    background: white;
+    z-index: 10;
+    transition: opacity 0.3s ease;
+    color: #64748b;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #ffd312;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .pbi-iframe {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    inset: 0;
+    border: none;
+    display: block;
+  }
+
+  /* ── Pantalla completa ── */
+  .pbi-container:fullscreen {
+    background: black;
+  }
+
+  .pbi-container:fullscreen .pbi-iframe {
+    height: 100vh;
+  }
+
+  /* ── Estado vacío (sin URL configurada) ── */
+  .pbi-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    text-align: center;
+    gap: 1rem;
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+  }
+
+  .pbi-empty h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #3d3b3e;
+    margin: 0;
+  }
+
+  .pbi-empty p {
+    color: #64748b;
+    font-size: 0.875rem;
+    max-width: 480px;
+    line-height: 1.6;
+  }
+
+  .pbi-empty ol {
+    text-align: left;
+    color: #475569;
+    font-size: 0.875rem;
+    line-height: 2;
+    max-width: 440px;
+  }
+
+  .pbi-empty code {
+    background: #f1f5f9;
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #e91b27;
+  }
+
+  @media (max-width: 640px) {
+    .reportes-content { padding: 0.75rem; }
+    .pbi-header { flex-direction: column; gap: 0.75rem; align-items: flex-start; }
+    .pbi-btn span { display: none; }
+    .pbi-btn { padding: 0.4rem; }
+    .pbi-container { min-height: 400px; }
+  }
+</style>

@@ -1,6 +1,7 @@
 // src/brand/brand.ts
 export const BRAND_CONFIG = {
     name: 'Ofit',
+    powerBiEmbedUrl: 'https://app.powerbi.com/view?r=eyJrIjoiZjgwODMwOWItNTZhOS00MjMwLWJiNGItZmMxY2U1ZDhjMjU4IiwidCI6Ijk0NzhkNzI5LTdiNDEtNGU3YS1hODhiLTExOTkyZGUwMzg5MSIsImMiOjZ9',
     permissions: {
         VIEW_COSTS: 1230,
     },
@@ -26,11 +27,7 @@ export const BRAND_CONFIG = {
         errors: {
             notAuthorized: 'No tienes permiso.',
         },
-        admin: {
-            internalLabel: 'Información Interna',
-            showCost: 'Revelar Costo',
-            hideCost: 'Ocultar'
-        }
+
     }
 };
 

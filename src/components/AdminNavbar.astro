@@ -40,7 +40,7 @@ const currentPath = Astro.url.pathname;
                         href="/admin"
                         class:list={[
                             "nav-link",
-                            { active: currentPath.startsWith("/admin") },
+                            { active: currentPath === "/admin" },
                         ]}
                     >
                         <svg
@@ -54,6 +54,62 @@ const currentPath = Astro.url.pathname;
                             <circle cx="12" cy="12" r="3" />
                         </svg>
                         <span>Admin</span>
+                    </a>
+                )
+            }
+
+            {
+                user?.adminPrecios && (
+                    <a
+                        href="/admin/reportes"
+                        class:list={[
+                            "nav-link",
+                            {
+                                active: currentPath.startsWith(
+                                    "/admin/reportes",
+                                ),
+                            },
+                        ]}
+                    >
+                        <svg
+                            width="22"
+                            height="22"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                        >
+                            <rect
+                                width="24"
+                                height="24"
+                                rx="4"
+                                fill="#F2C811"
+                            />
+                            <rect
+                                x="5"
+                                y="14"
+                                width="3"
+                                height="5"
+                                rx="1"
+                                fill="#3D3B3E"
+                            />
+                            <rect
+                                x="10.5"
+                                y="10"
+                                width="3"
+                                height="9"
+                                rx="1"
+                                fill="#3D3B3E"
+                            />
+                            <rect
+                                x="16"
+                                y="6"
+                                width="3"
+                                height="13"
+                                rx="1"
+                                fill="#3D3B3E"
+                            />
+                        </svg>
+                        <span>Reportes</span>
                     </a>
                 )
             }
