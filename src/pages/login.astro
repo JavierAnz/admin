@@ -1,12 +1,13 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { BRAND_CONFIG } from "../brand/brand";
 
 const url = Astro.url;
 const loginError = url.searchParams.get("error");
 const loginSuccess = url.searchParams.get("success");
 ---
 
-<Layout title="Acceso | OFIT">
+<Layout title="Admin | OFIT">
   <main
     class="min-h-screen flex items-center justify-center bg-[#3d3b3e] p-6 font-sans"
   >
@@ -173,7 +174,7 @@ const loginSuccess = url.searchParams.get("success");
           <p
             class="text-[9px] text-slate-300 font-bold uppercase tracking-widest"
           >
-            Altek Systems © 2026
+            {BRAND_CONFIG.company} © {BRAND_CONFIG.year}
           </p>
         </div>
       </div>

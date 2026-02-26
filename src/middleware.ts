@@ -8,7 +8,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     const esPublico =
         url.pathname === "/login" ||
         url.pathname.startsWith("/api/agencias") ||
-        url.pathname.startsWith("/api/auth"); // Permitir login/logout
+        url.pathname.startsWith("/api/auth");
 
     const esPrivado =
         url.pathname.startsWith("/inventario") ||
@@ -21,43 +21,38 @@ export const onRequest = defineMiddleware(async (context, next) => {
         (url.pathname.startsWith("/admin") && !esReportes) ||
         url.pathname.startsWith("/api/admin");
 
-    // 1. Si hay sesión, hidratamos locals.user
+    // 1. Hidratar locals.user desde la cookie de sesión
     if (sesionRaw) {
         try {
-            // Asumiendo que guardaste el objeto usuario como JSON en la cookie
-            // Si usas un ID de sesión, aquí deberías buscar en tu DB o Cache
             const userData = JSON.parse(sesionRaw);
-
             locals.user = {
                 id: userData.id,
                 nick: userData.nick,
                 permissions: userData.permissions || [],
                 agenciaId: cookies.get("agencia_id")?.value,
-                adminPrecios: userData.adminPrecios || false
             };
         } catch (e) {
             console.error("Error al parsear sesión:", e);
-            // Si la cookie está corrupta, la borramos para que no estorbe
             cookies.delete("ofit_session", { path: "/" });
         }
     }
 
-    // 2. Guardias de seguridad
+    // 2. Rutas protegidas requieren sesión
     if ((esPrivado || esAdmin || esReportes) && !locals.user) {
         return redirect("/login?error=no-auth");
     }
 
-    // 3. Verificar permiso admin (rutas admin generales)
-    if (esAdmin && !locals.user?.adminPrecios) {
+    // 3. Rutas /admin (panel de administración) requieren permiso ADMIN_PANEL
+    if (esAdmin && !locals.user?.permissions.includes(PERMS.ADMIN_PANEL)) {
         return redirect("/inventario?error=no-admin");
     }
 
-    // 4. Verificar permiso para ver reportes (permiso 704)
+    // 4. Ruta /admin/reportes requiere permiso VIEW_REPORTS
     if (esReportes && !locals.user?.permissions.includes(PERMS.VIEW_REPORTS)) {
         return redirect("/inventario?error=no-admin");
     }
 
-    // 5. Evitar que un logueado vuelva al login
+    // 5. Redirigir usuario ya autenticado fuera del login
     if (url.pathname === "/login" && locals.user) {
         return redirect("/inventario");
     }

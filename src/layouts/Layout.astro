@@ -1,22 +1,49 @@
 ---
 import Analytics from "@vercel/analytics/astro";
+import { BRAND_CONFIG } from "../brand/brand";
+import "../styles/global.css";
 
 if (Astro.url.searchParams.has("logout")) {
 	Astro.cookies.delete("ofit_session", { path: "/" });
 	Astro.cookies.delete("agencia_id", { path: "/" });
 	return Astro.redirect("/login");
 }
+
+interface Props {
+	title?: string;
+}
+const { title = BRAND_CONFIG.name } = Astro.props;
+const { colors, logoPath, faviconPath } = BRAND_CONFIG;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="es">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/png" href="/logo.png" />
+		<link rel="icon" type="image/png" href={faviconPath} />
 		<meta name="generator" content={Astro.generator} />
-		<title>Ofit</title>
+		<title>{title}</title>
 		<Analytics />
+		<!-- Inyección de paleta de marca como CSS custom properties.
+		     Cambiar brand.ts.colors cambia TODA la UI automáticamente. -->
+		<style
+			define:vars={{
+				"brand-primary": colors.primary,
+				"brand-primary-end": colors.primaryEnd,
+				"brand-dark": colors.dark,
+				"brand-dark-end": colors.darkEnd,
+				"brand-accent": colors.accent,
+			}}
+		>
+			:root {
+				--brand-primary: var(--brand-primary);
+				--brand-primary-end: var(--brand-primary-end);
+				--brand-dark: var(--brand-dark);
+				--brand-dark-end: var(--brand-dark-end);
+				--brand-accent: var(--brand-accent);
+			}
+		</style>
 	</head>
 	<body>
 		<slot />
@@ -24,8 +51,6 @@ if (Astro.url.searchParams.has("logout")) {
 </html>
 
 <style>
-	@import "tailwindcss";
-
 	html,
 	body {
 		margin: 0;

@@ -17,7 +17,6 @@ export async function getAllInventory(
     ]);
 
     const propio: ProductoUniversal[] = propioRaw.map(p => {
-      // Mapeo base
       const prod: ProductoUniversal = {
         id: (p.id || '').toString(),
         nombre: p.nombre,
@@ -26,7 +25,6 @@ export async function getAllInventory(
         precioa: p.precioA || 0,
         precioo: p.precioo || 0,
         numeroParte: p.numeroParte,
-        costo: p.costo || 0,
         vigencia: p.vigencia,
         marca: p.marca,
         modelo: p.modelo,
@@ -36,10 +34,10 @@ export async function getAllInventory(
         entregaInmediata: true,
         depto: '',
         ultimaCompra: p.ultimaCompra,
-        direccionWeb: ''
+        direccionWeb: '',
       };
 
-      // El objeto final solo lleva 'costo' si el permiso existe
+      // Inyectar costo solo si el usuario tiene permiso VIEW_COSTS
       if (userPerms.includes(PERMS.VIEW_COSTS)) {
         prod.costo = p.costo || 0;
       }

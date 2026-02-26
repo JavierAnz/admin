@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import ProductoDetalleModal from "./ProductoDetalleModal.svelte";
   import { BRAND_CONFIG } from "../brand/brand";
+  import type { ProductoBuscador, ItemCotizacion } from "../types/inventario";
 
   export let idAgenciaUsuario: string | null | undefined = undefined;
   export let nombreAgencia = "";
@@ -19,10 +20,10 @@
   }
 
   let busqueda = "";
-  let productos: any[] = [];
+  let productos: ProductoBuscador[] = [];
   let loading = false;
   let soloMiSucursal = false;
-  let timer: any;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   let activeId: number | string | null = null; // Feedback visual INP
 
   // Filtros restaurados
@@ -33,13 +34,12 @@
     ultimaCompra: null as "asc" | "desc" | null,
   };
 
-  let showModal = false,
-    selProd: any = null,
-    branchEx: any[] = [],
-    loadEx = false;
+  let showModal = false;
+  let selProd: ProductoBuscador | null = null;
+  let loadEx = false;
 
-  // Carrito/Cotización state - estilo original
-  let listaCarrito: any[] = [];
+  // Carrito / Cotización
+  let listaCarrito: ItemCotizacion[] = [];
   let mostrarResumen = false;
 
   function cargarCarrito() {

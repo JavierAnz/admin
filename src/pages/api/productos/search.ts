@@ -1,48 +1,53 @@
 import type { APIRoute } from 'astro';
 import { getAllInventory } from '../../../lib/inventoryService';
+import { checkRateLimit } from '../../../lib/rateLimiter';
 import { BRAND_CONFIG } from '../../../brand/brand';
 
-export const GET: APIRoute = async ({ url, locals }) => {
+export const GET: APIRoute = async ({ url, locals, request }) => {
+    // ── Rate limiting: 30 búsquedas/min por IP ──────────────────────────
+    const ip = request.headers.get('x-forwarded-for') ?? request.headers.get('cf-connecting-ip') ?? 'anonymous';
+    const { allowed, remaining, resetAt } = checkRateLimit(ip, 30, 60_000);
+
+    if (!allowed) {
+        return new Response(
+            JSON.stringify({ error: 'Demasiadas solicitudes. Espera un momento.' }),
+            {
+                status: 429,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Retry-After': String(Math.ceil((resetAt - Date.now()) / 1000)),
+                    'X-RateLimit-Remaining': '0',
+                },
+            }
+        );
+    }
+
+    // ── Parámetros ──────────────────────────────────────────────────────
     const queryRaw = url.searchParams.get('q') || '';
     const agencia = url.searchParams.get('agencia') || '';
     const soloLocal = url.searchParams.get('soloLocal') === 'true';
 
-    // Debug log para verificar parámetros
-    console.log('[SEARCH] Debug:', { query: queryRaw, agencia, soloLocal });
-
-    // Rigor: Validación temprana
+    // Validación temprana — evitar queries vacías al SQL
     if (queryRaw.trim().length < 2) {
         return new Response(JSON.stringify([]), { status: 200 });
     }
 
     try {
-        /**
-         * ESTRATEGIA DE PERMISOS:
-         * Los permisos vienen de 'locals' (inyectados por tu Middleware/Auth).
-         * Si no hay usuario logueado, pasamos un array vacío [].
-         */
         const userPerms = locals.user?.permissions || [];
-
-        // Invocamos al servicio unificado que ya maneja SQL, Intcomex y Permisos
-        const resultados = await getAllInventory(
-            queryRaw,
-            agencia,
-            soloLocal,
-            userPerms
-        );
+        const resultados = await getAllInventory(queryRaw, agencia, soloLocal, userPerms);
 
         return new Response(JSON.stringify(resultados), {
             status: 200,
             headers: {
                 'Content-Type': 'application/json',
-                'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' // Edge CDN cache: 60s fresco, 120s stale-while-revalidate
-            }
+                'X-RateLimit-Remaining': String(remaining),
+                // Edge CDN cache: 60s fresco, 120s stale-while-revalidate
+                'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
+            },
         });
 
     } catch (e) {
-        console.error('Error crítico en endpoint de búsqueda:', e);
-
-        // Uso de Copy Centralizado desde brand.ts
+        console.error('Error en endpoint de búsqueda:', e);
         return new Response(
             JSON.stringify({ error: BRAND_CONFIG.copy.search.error }),
             { status: 500 }

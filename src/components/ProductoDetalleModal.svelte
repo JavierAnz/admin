@@ -2,9 +2,10 @@
   import { tweened } from "svelte/motion";
   import { cubicOut } from "svelte/easing";
   import { BRAND_CONFIG } from "../brand/brand";
+  import type { ProductoBuscador } from "../types/inventario";
 
   export let showModal = false;
-  export let producto: any = null;
+  export let producto: ProductoBuscador | null = null;
 
   const GTQ = new Intl.NumberFormat("es-GT", {
     style: "currency",

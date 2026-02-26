@@ -36,7 +36,7 @@ const currentPath = Astro.url.pathname;
             </a>
 
             {
-                user?.adminPrecios && (
+                user?.permissions?.includes(PERMS.ADMIN_PANEL) && (
                     <a
                         href="/admin"
                         class:list={[
