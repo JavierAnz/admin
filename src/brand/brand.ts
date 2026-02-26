@@ -4,6 +4,7 @@ export const BRAND_CONFIG = {
     powerBiEmbedUrl: 'https://app.powerbi.com/view?r=eyJrIjoiZjgwODMwOWItNTZhOS00MjMwLWJiNGItZmMxY2U1ZDhjMjU4IiwidCI6Ijk0NzhkNzI5LTdiNDEtNGU3YS1hODhiLTExOTkyZGUwMzg5MSIsImMiOjZ9',
     permissions: {
         VIEW_COSTS: 1230,
+        VIEW_REPORTS: 704,
     },
     /** Tokens de dimensiones para imágenes — evita valores hardcoded en componentes */
     dimensions: {

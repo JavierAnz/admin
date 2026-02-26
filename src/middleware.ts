@@ -1,4 +1,5 @@
 import { defineMiddleware } from "astro:middleware";
+import { PERMS } from "./brand/brand";
 
 export const onRequest = defineMiddleware(async (context, next) => {
     const { url, cookies, redirect, locals } = context;
@@ -13,8 +14,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
         url.pathname.startsWith("/inventario") ||
         url.pathname.startsWith("/api/productos");
 
+    const esReportes =
+        url.pathname.startsWith("/admin/reportes");
+
     const esAdmin =
-        url.pathname.startsWith("/admin") ||
+        (url.pathname.startsWith("/admin") && !esReportes) ||
         url.pathname.startsWith("/api/admin");
 
     // 1. Si hay sesión, hidratamos locals.user
@@ -39,16 +43,21 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
 
     // 2. Guardias de seguridad
-    if ((esPrivado || esAdmin) && !locals.user) {
+    if ((esPrivado || esAdmin || esReportes) && !locals.user) {
         return redirect("/login?error=no-auth");
     }
 
-    // 3. Verificar permiso admin
+    // 3. Verificar permiso admin (rutas admin generales)
     if (esAdmin && !locals.user?.adminPrecios) {
         return redirect("/inventario?error=no-admin");
     }
 
-    // 3. Evitar que un logueado vuelva al login
+    // 4. Verificar permiso para ver reportes (permiso 704)
+    if (esReportes && !locals.user?.permissions.includes(PERMS.VIEW_REPORTS)) {
+        return redirect("/inventario?error=no-admin");
+    }
+
+    // 5. Evitar que un logueado vuelva al login
     if (url.pathname === "/login" && locals.user) {
         return redirect("/inventario");
     }

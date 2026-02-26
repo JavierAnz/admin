@@ -1,5 +1,6 @@
 ---
 // AdminNavbar.astro - Navbar condicional para usuarios admin
+import { PERMS } from "../brand/brand";
 const { user } = Astro.locals;
 const currentPath = Astro.url.pathname;
 ---
@@ -59,7 +60,7 @@ const currentPath = Astro.url.pathname;
             }
 
             {
-                user?.adminPrecios && (
+                user?.permissions?.includes(PERMS.VIEW_REPORTS) && (
                     <a
                         href="/admin/reportes"
                         class:list={[

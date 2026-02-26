@@ -1,7 +1,12 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import AdminNavbar from "../../components/AdminNavbar.astro";
-import { BRAND_CONFIG } from "../../brand/brand";
+import { BRAND_CONFIG, PERMS } from "../../brand/brand";
+
+const { user } = Astro.locals;
+if (!user?.permissions?.includes(PERMS.VIEW_REPORTS)) {
+  return Astro.redirect("/inventario?error=no-admin");
+}
 
 const embedUrl = BRAND_CONFIG.powerBiEmbedUrl;
 ---
