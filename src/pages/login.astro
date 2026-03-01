@@ -5,6 +5,13 @@ import { BRAND_CONFIG } from "../brand/brand";
 const url = Astro.url;
 const loginError = url.searchParams.get("error");
 const loginSuccess = url.searchParams.get("success");
+
+// Indicar al CDN de Vercel que puede cachear esta página
+// (login es idéntica para todos, solo varía el query param con el que aterriza)
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
 ---
 
 <Layout title="Admin | OFIT">

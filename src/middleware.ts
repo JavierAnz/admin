@@ -1,6 +1,9 @@
 import { defineMiddleware } from "astro:middleware";
 import { PERMS } from "./brand/brand";
 
+// Corre en Vercel Edge Runtime: sin cold-starts, 1M invocaciones gratis/mes por separado
+export const config = { runtime: 'edge' };
+
 export const onRequest = defineMiddleware(async (context, next) => {
     const { url, cookies, redirect, locals } = context;
     const sesionRaw = cookies.get("ofit_session")?.value;

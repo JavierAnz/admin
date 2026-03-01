@@ -4,6 +4,15 @@ import sql from 'mssql';
 import { getDbConnection } from '../../../lib/db';
 import sharp from 'sharp';
 
+// ── Vercel Blob (caché de imágenes procesadas) ───────────────────────────────
+let blobModule: typeof import('@vercel/blob') | null = null;
+async function getBlob() {
+    if (!blobModule && import.meta.env.BLOB_READ_WRITE_TOKEN) {
+        blobModule = await import('@vercel/blob');
+    }
+    return blobModule;
+}
+
 // Sharp configuration
 const sharpConfig = {
     failOnError: false,
@@ -36,7 +45,34 @@ export const GET: APIRoute = async ({ params, request }) => {
     const sizeParam = url.searchParams.get('size') || 'medium';
     const size = SIZES[sizeParam as keyof typeof SIZES] || SIZES.medium;
 
+    // ── Clave de Blob ────────────────────────────────────────────────────────
+    const blobKey = `img-marca-${id}-${sizeParam}`;
+
     try {
+        // ── 1. Intentar leer desde Blob cache ────────────────────────────
+        const blob = await getBlob();
+        if (blob) {
+            try {
+                const { blobs } = await blob.list({ prefix: blobKey, limit: 1 });
+                if (blobs.length > 0) {
+                    const cached = await fetch(blobs[0].url);
+                    const data = await cached.arrayBuffer();
+                    console.log(`[MARCA BLOB HIT] ${blobKey}`);
+                    return new Response(data, {
+                        headers: {
+                            'Content-Type': 'image/webp',
+                            'Content-Length': data.byteLength.toString(),
+                            'Cache-Control': 'public, max-age=31536000, immutable',
+                            'X-Image-Status': 'blob-cache',
+                        }
+                    });
+                }
+            } catch (blobErr) {
+                console.warn(`[MARCA BLOB READ ERR] ${blobKey}:`, blobErr);
+            }
+        }
+
+        // ── 2. Cache miss → leer de DB ────────────────────────────────────
         const pool = await getDbConnection();
 
         const result = await pool.request()
@@ -81,10 +117,10 @@ export const GET: APIRoute = async ({ params, request }) => {
             });
         }
 
-        // Process image
+        // ── 3. Procesar con Sharp ─────────────────────────────────────────
         let pipeline = sharp(record.IMAGEN, sharpConfig)
             .rotate()
-            .flatten({ background: '#ffffff' }); // Force white background for display
+            .flatten({ background: '#ffffff' });
 
         const metadata = await pipeline.metadata();
         if (metadata.width && metadata.height) {
@@ -97,11 +133,20 @@ export const GET: APIRoute = async ({ params, request }) => {
 
         const optimizedBuffer = await pipeline.webp({ quality: 82, effort: 5 }).toBuffer();
 
+        // ── 4. Guardar en Blob (fire-and-forget) ─────────────────────────
+        if (blob) {
+            blob.put(blobKey, optimizedBuffer, {
+                access: 'public',
+                contentType: 'image/webp',
+                addRandomSuffix: false,
+            }).catch(e => console.warn(`[MARCA BLOB WRITE ERR] ${blobKey}:`, e));
+        }
+
         return new Response(new Uint8Array(optimizedBuffer), {
             headers: {
                 'Content-Type': 'image/webp',
                 'Content-Length': optimizedBuffer.length.toString(),
-                'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable',
+                'Cache-Control': 'public, max-age=31536000, immutable',
                 'X-Image-Status': 'optimized'
             }
         });

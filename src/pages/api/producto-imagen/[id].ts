@@ -6,7 +6,17 @@ import sharp from 'sharp';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-// Configuración de Sharp optimizada
+// ── Vercel Blob (caché de imágenes procesadas) ───────────────────────────────
+// Importación dinámica para no romper si BLOB_READ_WRITE_TOKEN no está
+let blobModule: typeof import('@vercel/blob') | null = null;
+async function getBlob() {
+  if (!blobModule && import.meta.env.BLOB_READ_WRITE_TOKEN) {
+    blobModule = await import('@vercel/blob');
+  }
+  return blobModule;
+}
+
+// ── Configuración de Sharp ───────────────────────────────────────────────────
 const sharpConfig = {
   failOnError: false,
   sequentialRead: true,
@@ -46,14 +56,9 @@ const formatOptions = {
   }
 };
 
-// ✨ Cache del placeholder
-let placeholderCache: Buffer | null = null;
-
 // ✨ Función para generar placeholder
 async function getPlaceholder(size: { width: number; height: number }): Promise<Buffer> {
-  // Intentar cargar placeholder desde archivo
   const placeholderPath = path.resolve('./public/placeholder-image.png');
-
   try {
     const fileBuffer = await fs.readFile(placeholderPath);
     return await sharp(fileBuffer, sharpConfig)
@@ -61,7 +66,6 @@ async function getPlaceholder(size: { width: number; height: number }): Promise<
       .webp({ quality: 80, effort: 4 })
       .toBuffer();
   } catch {
-    // Si no existe, generar placeholder dinámico
     return await sharp({
       create: {
         width: size.width,
@@ -85,16 +89,25 @@ async function getPlaceholder(size: { width: number; height: number }): Promise<
   }
 }
 
+// Cabeceras de caché para respuestas de imagen
+const IMG_CACHE_HEADERS = {
+  'Cache-Control': 'public, max-age=31536000, immutable',
+  'CDN-Cache-Control': 'public, s-maxage=604800, stale-while-revalidate=2592000',
+  'Vary': 'Accept',
+  'X-Content-Type-Options': 'nosniff',
+  'Cross-Origin-Resource-Policy': 'cross-origin',
+};
+
 export const GET: APIRoute = async ({ params, request }) => {
   const id = params.id;
   const url = new URL(request.url);
 
-  // 1. Validación robusta de ID
+  // 1. Validación de ID
   if (!id || !/^\d{1,10}$/.test(id)) {
     return new Response(null, { status: 400 });
   }
 
-  // 2. Parámetro de tamaño con validación
+  // 2. Parámetro de tamaño
   const sizeParam = url.searchParams.get('size') || 'medium';
   const size = SIZES[sizeParam as keyof typeof SIZES] || SIZES.medium;
 
@@ -102,19 +115,50 @@ export const GET: APIRoute = async ({ params, request }) => {
   const acceptHeader = request.headers.get('accept') || '';
   const supportsAvif = acceptHeader.includes('image/avif');
   const supportsWebp = acceptHeader.includes('image/webp');
-
   const format = supportsAvif ? 'avif' : supportsWebp ? 'webp' : 'jpeg';
 
-  // 4. Parámetro de calidad personalizable
+  // 4. Calidad personalizable
   const customQuality = url.searchParams.get('q');
   const quality = customQuality
     ? Math.min(100, Math.max(1, parseInt(customQuality)))
     : formatOptions[format].quality;
 
+  const contentTypeMap = { avif: 'image/avif', webp: 'image/webp', jpeg: 'image/jpeg' };
+  const contentType = contentTypeMap[format];
+
+  // ── Clave de Blob ────────────────────────────────────────────────────────
+  const blobKey = `img-producto-${id}-${sizeParam}-${format}-q${quality}`;
+
   try {
+    // ── 5. Intentar leer desde Blob cache ────────────────────────────────
+    const blob = await getBlob();
+    if (blob) {
+      try {
+        const { blobs } = await blob.list({ prefix: blobKey, limit: 1 });
+        if (blobs.length > 0) {
+          // Cache hit: devolver imagen desde Blob sin tocar DB ni Sharp
+          const cached = await fetch(blobs[0].url);
+          const data = await cached.arrayBuffer();
+          console.log(`[IMG BLOB HIT] ${blobKey}`);
+          return new Response(data, {
+            headers: {
+              ...IMG_CACHE_HEADERS,
+              'Content-Type': contentType,
+              'Content-Length': data.byteLength.toString(),
+              'X-Image-Status': 'blob-cache',
+              'X-Image-Format': format,
+              'X-Image-Size': sizeParam,
+            }
+          });
+        }
+      } catch (blobErr) {
+        console.warn(`[IMG BLOB READ ERR] ${blobKey}:`, blobErr);
+      }
+    }
+
+    // ── 6. Cache miss → leer de DB ────────────────────────────────────────
     const pool = await getDbConnection();
 
-    // Query simple sin HASHBYTES
     const result = await pool.request()
       .input('id', sql.Int, parseInt(id))
       .query(`
@@ -129,16 +173,14 @@ export const GET: APIRoute = async ({ params, request }) => {
 
     const record = result.recordset[0];
 
-    // ✅ Si no hay imagen, devolver placeholder
+    // ✅ Sin imagen → placeholder
     if (!record?.Imagen1) {
       const placeholderBuffer = await getPlaceholder(size);
-      const placeholderData = new Uint8Array(placeholderBuffer);
-
-      return new Response(placeholderData, {
+      return new Response(new Uint8Array(placeholderBuffer), {
         headers: {
           'Content-Type': 'image/webp',
           'Content-Length': placeholderBuffer.length.toString(),
-          'Cache-Control': 'public, max-age=86400, s-maxage=86400', // Cache 1 día (CDN + browser)
+          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
           'X-Image-Status': 'placeholder'
         }
       });
@@ -146,116 +188,69 @@ export const GET: APIRoute = async ({ params, request }) => {
 
     // ETag basado en tamaño + parámetros
     const etag = `"${id}-${record.PesoOriginal}-${sizeParam}-${format}-q${quality}"`;
-
-    // Soporte completo de cache condicional
     const ifNoneMatch = request.headers.get('if-none-match');
-
     if (ifNoneMatch === etag) {
       return new Response(null, {
         status: 304,
-        headers: {
-          'ETag': etag,
-          'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable'
-        }
+        headers: { 'ETag': etag, 'Cache-Control': 'public, max-age=31536000, immutable' }
       });
     }
 
-    // Procesamiento con Sharp
+    // ── 7. Procesar con Sharp ─────────────────────────────────────────────
     let pipeline = sharp(record.Imagen1, sharpConfig);
-
-    // Detectar metadata
     const metadata = await pipeline.metadata();
-
-    // Auto-rotación EXIF
     pipeline = pipeline.rotate().flatten({ background: '#ffffff' });
 
-    // Resize solo si es necesario
     if (metadata.width && metadata.height) {
       if (metadata.width > size.width || metadata.height > size.height) {
-        pipeline = pipeline.resize({
-          width: size.width,
-          height: size.height,
-          ...resizeOptions
-        });
+        pipeline = pipeline.resize({ width: size.width, height: size.height, ...resizeOptions });
       }
     } else {
-      pipeline = pipeline.resize({
-        width: size.width,
-        height: size.height,
-        ...resizeOptions
-      });
+      pipeline = pipeline.resize({ width: size.width, height: size.height, ...resizeOptions });
     }
 
-    // Conversión a formato con opciones optimizadas
     let optimizedBuffer: Buffer;
-    let contentType: string;
-
     switch (format) {
       case 'avif':
-        optimizedBuffer = await pipeline
-          .avif({ ...formatOptions.avif, quality })
-          .toBuffer();
-        contentType = 'image/avif';
+        optimizedBuffer = await pipeline.avif({ ...formatOptions.avif, quality }).toBuffer();
         break;
-
       case 'webp':
-        optimizedBuffer = await pipeline
-          .webp({ ...formatOptions.webp, quality })
-          .toBuffer();
-        contentType = 'image/webp';
+        optimizedBuffer = await pipeline.webp({ ...formatOptions.webp, quality }).toBuffer();
         break;
-
-      default: // jpeg fallback
-        optimizedBuffer = await pipeline
-          .jpeg({ ...formatOptions.jpeg, quality })
-          .toBuffer();
-        contentType = 'image/jpeg';
+      default:
+        optimizedBuffer = await pipeline.jpeg({ ...formatOptions.jpeg, quality }).toBuffer();
     }
 
-    // Logging para monitoreo
     const compressionRatio = ((1 - optimizedBuffer.length / record.PesoOriginal) * 100).toFixed(1);
     console.log(`[IMG] ${id} ${sizeParam} → ${format} | ${record.PesoOriginal}b → ${optimizedBuffer.length}b (${compressionRatio}% saved)`);
 
-    // Convertir Buffer a Uint8Array
-    const imageData = new Uint8Array(optimizedBuffer);
+    // ── 8. Guardar en Blob para próximas requests (fire-and-forget) ───────
+    if (blob) {
+      blob.put(blobKey, optimizedBuffer, {
+        access: 'public',
+        contentType,
+        addRandomSuffix: false,
+      }).catch(e => console.warn(`[IMG BLOB WRITE ERR] ${blobKey}:`, e));
+    }
 
-    // Headers optimizados para producción
-    return new Response(imageData, {
+    return new Response(new Uint8Array(optimizedBuffer), {
       headers: {
+        ...IMG_CACHE_HEADERS,
         'Content-Type': contentType,
         'Content-Length': optimizedBuffer.length.toString(),
         'ETag': etag,
-
-        // Cache agresivo: 1 año inmutable
-        'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable',
-
-        // CDN cache: 7 días con revalidación
-        'CDN-Cache-Control': 'public, s-maxage=604800, stale-while-revalidate=2592000',
-
-        // Vary critical para multi-formato
-        'Vary': 'Accept',
-
-        // Security headers
-        'X-Content-Type-Options': 'nosniff',
-        'Cross-Origin-Resource-Policy': 'cross-origin',
-
-        // Timing info
         'X-Image-Format': format,
         'X-Image-Size': sizeParam,
         'X-Compression-Ratio': compressionRatio + '%',
-        'X-Image-Status': 'optimized'
+        'X-Image-Status': 'optimized',
       }
     });
 
   } catch (error) {
     console.error(`[IMG ERROR] ${id}:`, error);
-
-    // ✅ En caso de error, también devolver placeholder
     try {
       const placeholderBuffer = await getPlaceholder(size);
-      const placeholderData = new Uint8Array(placeholderBuffer);
-
-      return new Response(placeholderData, {
+      return new Response(new Uint8Array(placeholderBuffer), {
         headers: {
           'Content-Type': 'image/webp',
           'Content-Length': placeholderBuffer.length.toString(),
@@ -263,14 +258,8 @@ export const GET: APIRoute = async ({ params, request }) => {
           'X-Image-Status': 'error-fallback'
         }
       });
-    } catch (fallbackError) {
-      console.error(`[IMG FALLBACK ERROR] ${id}:`, fallbackError);
-      return new Response(null, {
-        status: 500,
-        headers: {
-          'Cache-Control': 'no-store'
-        }
-      });
+    } catch {
+      return new Response(null, { status: 500, headers: { 'Cache-Control': 'no-store' } });
     }
   }
 };

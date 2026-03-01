@@ -7,12 +7,19 @@ const config: sql.config = {
     server: import.meta.env.sqlserver,
     database: import.meta.env.sqldatabase,
     port: Number(import.meta.env.sqlport) || 1433,
+    requestTimeout: 15_000, // 15s por query — evita queries colgados consumiendo memoria
     options: {
         encrypt: false, // En local suele ser false, en Vercel será true
         trustServerCertificate: true,
         connectTimeout: 30000,
         // Agregamos instanceName si existe en el env
         ...(import.meta.env.instanceName ? { instanceName: import.meta.env.instanceName } : {})
+    },
+    pool: {
+        max: 5,                  // Máximo 5 conexiones simultáneas por función
+        min: 0,                  // No mantener conexiones mínimas cuando está idle
+        idleTimeoutMillis: 10_000,   // Cerrar conexiones inactivas a los 10s
+        acquireTimeoutMillis: 15_000, // Tiempo máximo para obtener una conexión del pool
     }
 };
 

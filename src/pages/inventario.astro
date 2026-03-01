@@ -12,7 +12,7 @@ const nombreAgencia = await getNombreAgencia(agenciaId ?? "");
 <Layout title="Inventario | OFIT">
   <div class="inventario-page">
     <AdminNavbar />
-    <SpeedInsights />
+    <SpeedInsights sampleRate={0.1} />
     <Buscador
       client:load
       idAgenciaUsuario={agenciaId}
