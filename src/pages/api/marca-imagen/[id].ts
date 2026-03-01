@@ -133,13 +133,17 @@ export const GET: APIRoute = async ({ params, request }) => {
 
         const optimizedBuffer = await pipeline.webp({ quality: 82, effort: 5 }).toBuffer();
 
-        // ── 4. Guardar en Blob (fire-and-forget) ─────────────────────────
+        // ── 4. Guardar en Blob ─────────────────────────
         if (blob) {
-            blob.put(blobKey, optimizedBuffer, {
-                access: 'public',
-                contentType: 'image/webp',
-                addRandomSuffix: false,
-            }).catch(e => console.warn(`[MARCA BLOB WRITE ERR] ${blobKey}:`, e));
+            try {
+                await blob.put(blobKey, optimizedBuffer, {
+                    access: 'public',
+                    contentType: 'image/webp',
+                    addRandomSuffix: false,
+                });
+            } catch (e) {
+                console.warn(`[MARCA BLOB WRITE ERR] ${blobKey}:`, e);
+            }
         }
 
         return new Response(new Uint8Array(optimizedBuffer), {

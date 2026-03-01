@@ -224,13 +224,17 @@ export const GET: APIRoute = async ({ params, request }) => {
     const compressionRatio = ((1 - optimizedBuffer.length / record.PesoOriginal) * 100).toFixed(1);
     console.log(`[IMG] ${id} ${sizeParam} → ${format} | ${record.PesoOriginal}b → ${optimizedBuffer.length}b (${compressionRatio}% saved)`);
 
-    // ── 8. Guardar en Blob para próximas requests (fire-and-forget) ───────
+    // ── 8. Guardar en Blob para próximas requests ───────
     if (blob) {
-      blob.put(blobKey, optimizedBuffer, {
-        access: 'public',
-        contentType,
-        addRandomSuffix: false,
-      }).catch(e => console.warn(`[IMG BLOB WRITE ERR] ${blobKey}:`, e));
+      try {
+        await blob.put(blobKey, optimizedBuffer, {
+          access: 'public',
+          contentType,
+          addRandomSuffix: false,
+        });
+      } catch (e) {
+        console.warn(`[IMG BLOB WRITE ERR] ${blobKey}:`, e);
+      }
     }
 
     return new Response(new Uint8Array(optimizedBuffer), {
