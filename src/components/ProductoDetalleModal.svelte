@@ -7,6 +7,18 @@
   export let showModal = false;
   export let producto: ProductoBuscador | null = null;
 
+  let showImageFull = false;
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === "Escape") {
+      if (showImageFull) {
+        showImageFull = false;
+      } else {
+        close();
+      }
+    }
+  }
+
   const GTQ = new Intl.NumberFormat("es-GT", {
     style: "currency",
     currency: "GTQ",
@@ -113,11 +125,12 @@
   }
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
 {#if showModal && producto}
   <div
     class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[100] flex items-center justify-center p-2 sm:p-4"
     on:click={close}
-    on:keydown={(e) => e.key === "Escape" && close()}
     role="button"
     tabindex="-1"
   >
@@ -138,8 +151,10 @@
 
       <div class="overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
         <!-- Imagen grande con prioridad -->
-        <div
-          class="w-full h-48 sm:h-64 bg-slate-50 rounded-2xl flex items-center justify-center p-4"
+        <button
+          class="w-full h-48 sm:h-64 bg-slate-50 rounded-2xl flex items-center justify-center p-4 cursor-zoom-in hover:bg-slate-100 transition-colors"
+          on:click={() => (showImageFull = true)}
+          type="button"
         >
           <img
             src={`/api/producto-imagen/${producto.id}?size=medium`}
@@ -148,9 +163,9 @@
             height={BRAND_CONFIG.dimensions.modalImageHeight}
             fetchpriority="high"
             loading="eager"
-            class="max-h-full object-contain"
+            class="max-h-full object-contain mix-blend-multiply"
           />
-        </div>
+        </button>
 
         <!-- Info del producto compacta -->
         <div>
@@ -357,4 +372,41 @@
       </div>
     </div>
   </div>
+
+  {#if showImageFull}
+    <div
+      class="fixed inset-0 bg-black/95 z-[200] flex items-center justify-center p-4 cursor-zoom-out"
+      on:click={() => (showImageFull = false)}
+      role="button"
+      tabindex="-1"
+    >
+      <img
+        src={`/api/producto-imagen/${producto.id}?size=large`}
+        alt={producto.nombre}
+        class="max-w-full max-h-full object-contain"
+      />
+      <button
+        class="absolute top-4 right-4 sm:top-6 sm:right-6 text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors"
+        on:click|stopPropagation={() => (showImageFull = false)}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="32"
+          height="32"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          ><line x1="18" y1="6" x2="6" y2="18"></line><line
+            x1="6"
+            y1="6"
+            x2="18"
+            y2="18"
+          ></line></svg
+        >
+      </button>
+    </div>
+  {/if}
 {/if}
