@@ -126,33 +126,31 @@ export const GET: APIRoute = async ({ params, request }) => {
   const contentTypeMap = { avif: 'image/avif', webp: 'image/webp', jpeg: 'image/jpeg' };
   const contentType = contentTypeMap[format];
 
-  // ── Clave de Blob ────────────────────────────────────────────────────────
-  const blobKey = `img-producto-${id}-${sizeParam}-${format}-q${quality}`;
+  // ── Clave de Blob (con extensión para Standard CDN) ────────────────────
+  const blobKey = `img-producto-${id}-${sizeParam}-${format}-q${quality}.${format}`;
+
+  // ── Generar URL Predecible para evitar Operaciones Avanzadas (list) ───
+  let predictableUrl: string | null = null;
+  const token = import.meta.env.BLOB_READ_WRITE_TOKEN;
+  if (token) {
+    const parts = token.split('_');
+    if (parts.length >= 4) {
+      predictableUrl = `https://${parts[3]}.public.blob.vercel-storage.com/${blobKey}`;
+    }
+  }
 
   try {
-    // ── 5. Intentar leer desde Blob cache ────────────────────────────────
-    const blob = await getBlob();
-    if (blob) {
+    // ── 5. Intentar HEAD request al CDN (Standard Operation, muy rápida) ──
+    if (predictableUrl) {
       try {
-        const { blobs } = await blob.list({ prefix: blobKey, limit: 1 });
-        if (blobs.length > 0) {
-          // Cache hit: devolver imagen desde Blob sin tocar DB ni Sharp
-          const cached = await fetch(blobs[0].url);
-          const data = await cached.arrayBuffer();
-          console.log(`[IMG BLOB HIT] ${blobKey}`);
-          return new Response(data, {
-            headers: {
-              ...IMG_CACHE_HEADERS,
-              'Content-Type': contentType,
-              'Content-Length': data.byteLength.toString(),
-              'X-Image-Status': 'blob-cache',
-              'X-Image-Format': format,
-              'X-Image-Size': sizeParam,
-            }
-          });
+        const cacheRes = await fetch(predictableUrl, { method: 'HEAD' });
+        if (cacheRes.ok) {
+          console.log(`[IMG BLOB HIT (CDN)] ${blobKey}`);
+          // ¡Cache Hit! Redirigir al cliente para que no consuma RAM del Serverless
+          return Response.redirect(predictableUrl, 302);
         }
-      } catch (blobErr) {
-        console.warn(`[IMG BLOB READ ERR] ${blobKey}:`, blobErr);
+      } catch (err) {
+        console.warn(`[IMG CDN CACHE CHECK ERR]`, err);
       }
     }
 
@@ -225,6 +223,7 @@ export const GET: APIRoute = async ({ params, request }) => {
     console.log(`[IMG] ${id} ${sizeParam} → ${format} | ${record.PesoOriginal}b → ${optimizedBuffer.length}b (${compressionRatio}% saved)`);
 
     // ── 8. Guardar en Blob para próximas requests ───────
+    const blob = await getBlob();
     if (blob) {
       try {
         await blob.put(blobKey, optimizedBuffer, {

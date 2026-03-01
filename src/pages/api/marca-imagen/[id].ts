@@ -45,30 +45,31 @@ export const GET: APIRoute = async ({ params, request }) => {
     const sizeParam = url.searchParams.get('size') || 'medium';
     const size = SIZES[sizeParam as keyof typeof SIZES] || SIZES.medium;
 
-    // ── Clave de Blob ────────────────────────────────────────────────────────
-    const blobKey = `img-marca-${id}-${sizeParam}`;
+    // ── Clave de Blob (con extensión para Standard CDN) ────────────────────
+    const blobKey = `img-marca-${id}-${sizeParam}.webp`;
+
+    // ── Generar URL Predecible para evitar Operaciones Avanzadas (list) ───
+    let predictableUrl: string | null = null;
+    const token = import.meta.env.BLOB_READ_WRITE_TOKEN;
+    if (token) {
+        const parts = token.split('_');
+        if (parts.length >= 4) {
+            predictableUrl = `https://${parts[3]}.public.blob.vercel-storage.com/${blobKey}`;
+        }
+    }
 
     try {
-        // ── 1. Intentar leer desde Blob cache ────────────────────────────
-        const blob = await getBlob();
-        if (blob) {
+        // ── 1. Intentar HEAD request al CDN (Standard Operation, muy rápida) ──
+        if (predictableUrl) {
             try {
-                const { blobs } = await blob.list({ prefix: blobKey, limit: 1 });
-                if (blobs.length > 0) {
-                    const cached = await fetch(blobs[0].url);
-                    const data = await cached.arrayBuffer();
-                    console.log(`[MARCA BLOB HIT] ${blobKey}`);
-                    return new Response(data, {
-                        headers: {
-                            'Content-Type': 'image/webp',
-                            'Content-Length': data.byteLength.toString(),
-                            'Cache-Control': 'public, max-age=31536000, immutable',
-                            'X-Image-Status': 'blob-cache',
-                        }
-                    });
+                const cacheRes = await fetch(predictableUrl, { method: 'HEAD' });
+                if (cacheRes.ok) {
+                    console.log(`[MARCA BLOB HIT (CDN)] ${blobKey}`);
+                    // ¡Cache Hit! Redirigir al cliente para que no consuma RAM del Serverless
+                    return Response.redirect(predictableUrl, 302);
                 }
-            } catch (blobErr) {
-                console.warn(`[MARCA BLOB READ ERR] ${blobKey}:`, blobErr);
+            } catch (err) {
+                console.warn(`[MARCA CDN CACHE CHECK ERR]`, err);
             }
         }
 
@@ -134,6 +135,7 @@ export const GET: APIRoute = async ({ params, request }) => {
         const optimizedBuffer = await pipeline.webp({ quality: 82, effort: 5 }).toBuffer();
 
         // ── 4. Guardar en Blob ─────────────────────────
+        const blob = await getBlob();
         if (blob) {
             try {
                 await blob.put(blobKey, optimizedBuffer, {
