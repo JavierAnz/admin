@@ -48,7 +48,7 @@ export async function buscarLocal(
         INNER JOIN rel_productos_agencias r WITH (NOLOCK) ON v.Codigo = r.cod_prod 
         AND r.COD_AGEN = @agencia AND r.existencia > 0
         ${whereClause}
-        ORDER BY v.ultimaCompra DESC`;
+        ORDER BY v.ultimaCompra `;
         } else {
             query = `
         SELECT TOP 50 ${selectClause}, 
@@ -63,7 +63,7 @@ export async function buscarLocal(
           WHERE r3.cod_prod = v.Codigo AND r3.existencia > 0
           AND (a2.ES_SALA_VENTAS = 1 OR a2.RECIBE_COMPRAS = 1)
         )
-        ORDER BY v.ultimaCompra DESC`;
+        ORDER BY v.ultimaCompra `;
         }
 
         const result = await request.query(query);

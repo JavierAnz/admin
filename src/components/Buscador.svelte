@@ -95,7 +95,20 @@
 
   function handleInput() {
     clearTimeout(timer);
-    timer = setTimeout(realizarBusqueda, 300);
+    timer = setTimeout(() => {
+      realizarBusqueda();
+
+      // Enviar evento a GA4 si la búsqueda tiene al menos 2 caracteres
+      if (
+        busqueda.trim().length >= 2 &&
+        typeof window !== "undefined" &&
+        (window as any).gtag
+      ) {
+        (window as any).gtag("event", "search", {
+          search_term: busqueda.trim(),
+        });
+      }
+    }, 300);
   }
 
   // Devuelve un array de N elementos para renderizar los skeleton cards
