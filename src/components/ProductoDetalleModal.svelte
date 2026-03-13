@@ -173,7 +173,7 @@
       <div class="overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
         <!-- Imagen grande con prioridad -->
         <button
-          class="w-full h-48 sm:h-64 bg-slate-50 rounded-2xl flex items-center justify-center p-4 cursor-zoom-in hover:bg-slate-100 transition-colors"
+          class="w-full h-64 sm:h-80 bg-slate-50 rounded-2xl flex items-center justify-center p-1 sm:p-2 cursor-zoom-in hover:bg-slate-100 transition-colors"
           on:click={() => (showImageFull = true)}
           type="button"
         >
@@ -184,7 +184,7 @@
             height={BRAND_CONFIG.dimensions.modalImageHeight}
             fetchpriority="high"
             loading="eager"
-            class="max-h-full object-contain mix-blend-multiply"
+            class="w-full h-full object-contain mix-blend-multiply"
           />
         </button>
 
@@ -220,11 +220,17 @@
               <span class="text-[9px] font-black text-slate-400 uppercase mb-1"
                 >Escanear para ver más</span
               >
-              <img
-                src={QRcode}
-                alt="Código QR del producto"
-                class="w-auto h-auto rounded-md mix-blend-multiply"
-              />
+              <a
+                href={producto.direccionWeb}
+                target={producto.direccionWeb}
+                rel="noopener noreferrer"
+              >
+                <img
+                  src={QRcode}
+                  alt="Código QR del producto"
+                  class="w-auto h-auto rounded-md mix-blend-multiply"
+                />
+              </a>
             </div>
           {/if}
         </div>

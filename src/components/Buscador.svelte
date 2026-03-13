@@ -223,14 +223,14 @@
           class="flex-shrink-0 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all {filtros.precio ===
           'asc'
             ? 'bg-slate-800 text-yellow-400'
-            : 'bg-slate-100 text-slate-500'}">Precio ↑</button
+            : 'bg-slate-100 text-slate-500'}">Precio ↓</button
         >
         <button
           on:click={() => toggleFiltro("precio", "desc")}
           class="flex-shrink-0 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all {filtros.precio ===
           'desc'
             ? 'bg-slate-800 text-yellow-400'
-            : 'bg-slate-100 text-slate-500'}">Precio ↓</button
+            : 'bg-slate-100 text-slate-500'}">Precio ↑</button
         >
         <button
           on:click={() => toggleFiltro("existencia", "desc")}

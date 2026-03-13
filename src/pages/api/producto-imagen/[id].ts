@@ -9,8 +9,16 @@ import path from 'node:path';
 // ── Vercel Blob (caché de imágenes procesadas) ───────────────────────────────
 // Importación dinámica para no romper si BLOB_READ_WRITE_TOKEN no está
 let blobModule: typeof import('@vercel/blob') | null = null;
+
+function getBlobToken() {
+  if (typeof process !== 'undefined' && process.env.BLOB_READ_WRITE_TOKEN) {
+    return process.env.BLOB_READ_WRITE_TOKEN;
+  }
+  return import.meta.env.BLOB_READ_WRITE_TOKEN;
+}
+
 async function getBlob() {
-  if (!blobModule && import.meta.env.BLOB_READ_WRITE_TOKEN) {
+  if (!blobModule && getBlobToken()) {
     blobModule = await import('@vercel/blob');
   }
   return blobModule;
@@ -34,23 +42,23 @@ const SIZES = {
 const resizeOptions = {
   fit: 'inside' as const,
   withoutEnlargement: true,
-  kernel: 'lanczos3' as const
+  kernel: 'cubic' as const
 };
 
 // Opciones de formato optimizadas
 const formatOptions = {
   avif: {
-    quality: 65,
-    effort: 5,
+    quality: 60,
+    effort: 3,
     chromaSubsampling: '4:2:0' as const
   },
   webp: {
-    quality: 82,
-    effort: 5,
+    quality: 78,
+    effort: 3,
     smartSubsample: true
   },
   jpeg: {
-    quality: 85,
+    quality: 80,
     progressive: true,
     mozjpeg: true
   }
@@ -92,7 +100,7 @@ async function getPlaceholder(size: { width: number; height: number }): Promise<
 // Cabeceras de caché para respuestas de imagen
 const IMG_CACHE_HEADERS = {
   'Cache-Control': 'public, max-age=31536000, immutable',
-  'CDN-Cache-Control': 'public, s-maxage=604800, stale-while-revalidate=2592000',
+  'CDN-Cache-Control': 'public, s-maxage=31536000, stale-while-revalidate=86400',
   'Vary': 'Accept',
   'X-Content-Type-Options': 'nosniff',
   'Cross-Origin-Resource-Policy': 'cross-origin',
@@ -131,7 +139,7 @@ export const GET: APIRoute = async ({ params, request }) => {
 
   // ── Generar URL Predecible para evitar Operaciones Avanzadas (list) ───
   let predictableUrl: string | null = null;
-  const token = import.meta.env.BLOB_READ_WRITE_TOKEN;
+  const token = getBlobToken();
   if (token) {
     const parts = token.split('_');
     if (parts.length >= 4) {
@@ -232,7 +240,8 @@ export const GET: APIRoute = async ({ params, request }) => {
           addRandomSuffix: false,
         });
       } catch (e) {
-        console.warn(`[IMG BLOB WRITE ERR] ${blobKey}:`, e);
+        // Failing silently here so the image still gets returned even if Blob Limit is reached
+        console.warn(`[IMG BLOB QUOTA LIMIT] Ignored Put for ${blobKey}`);
       }
     }
 

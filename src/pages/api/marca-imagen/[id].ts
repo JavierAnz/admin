@@ -6,8 +6,16 @@ import sharp from 'sharp';
 
 // ── Vercel Blob (caché de imágenes procesadas) ───────────────────────────────
 let blobModule: typeof import('@vercel/blob') | null = null;
+
+function getBlobToken() {
+    if (typeof process !== 'undefined' && process.env.BLOB_READ_WRITE_TOKEN) {
+        return process.env.BLOB_READ_WRITE_TOKEN;
+    }
+    return import.meta.env.BLOB_READ_WRITE_TOKEN;
+}
+
 async function getBlob() {
-    if (!blobModule && import.meta.env.BLOB_READ_WRITE_TOKEN) {
+    if (!blobModule && getBlobToken()) {
         blobModule = await import('@vercel/blob');
     }
     return blobModule;
@@ -50,7 +58,7 @@ export const GET: APIRoute = async ({ params, request }) => {
 
     // ── Generar URL Predecible para evitar Operaciones Avanzadas (list) ───
     let predictableUrl: string | null = null;
-    const token = import.meta.env.BLOB_READ_WRITE_TOKEN;
+    const token = getBlobToken();
     if (token) {
         const parts = token.split('_');
         if (parts.length >= 4) {
@@ -144,7 +152,8 @@ export const GET: APIRoute = async ({ params, request }) => {
                     addRandomSuffix: false,
                 });
             } catch (e) {
-                console.warn(`[MARCA BLOB WRITE ERR] ${blobKey}:`, e);
+                // Ignore Blob Limit errors so the API doesn't 500 when Quota is reached
+                console.warn(`[MARCA BLOB QUOTA LIMIT] Ignored Put for ${blobKey}`);
             }
         }
 
@@ -153,6 +162,7 @@ export const GET: APIRoute = async ({ params, request }) => {
                 'Content-Type': 'image/webp',
                 'Content-Length': optimizedBuffer.length.toString(),
                 'Cache-Control': 'public, max-age=31536000, immutable',
+                'CDN-Cache-Control': 'public, s-maxage=31536000, stale-while-revalidate=86400',
                 'X-Image-Status': 'optimized'
             }
         });
