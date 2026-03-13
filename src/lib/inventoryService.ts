@@ -28,13 +28,13 @@ export async function getAllInventory(
         vigencia: p.vigencia,
         marca: p.marca,
         modelo: p.modelo,
+        direccionWeb: p.direccionWeb || p.DIRECCION_WEB || '',
         barras: p.barras,
         origen: 'PROPIO',
         proveedorNombre: 'OFIT',
         entregaInmediata: true,
-        depto: '',
+        depto: p.depto,
         ultimaCompra: p.ultimaCompra,
-        direccionWeb: '',
       };
 
       // Inyectar costo solo si el usuario tiene permiso VIEW_COSTS

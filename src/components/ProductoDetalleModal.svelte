@@ -3,7 +3,9 @@
   import { cubicOut } from "svelte/easing";
   import { BRAND_CONFIG } from "../brand/brand";
   import type { ProductoBuscador } from "../types/inventario";
+  import QRCode from "qrcode";
 
+  export let QRcode = "";
   export let showModal = false;
   export let producto: ProductoBuscador | null = null;
 
@@ -39,6 +41,20 @@
   let errorPrecioManual = "";
 
   $: if (showModal && producto) {
+    QRcode = "";
+    if (producto.direccionWeb) {
+      QRCode.toDataURL(producto.direccionWeb, {
+        width: 100,
+        margin: 1,
+      })
+        .then((url) => {
+          QRcode = url;
+        })
+        .catch((err) => {
+          console.error("Error al generar el QR:", err);
+        });
+    }
+
     $scale = 1;
     costoVisible = false;
     tipoPrecio = "precioa";
@@ -89,13 +105,16 @@
   }
 
   function agregarAlCarrito() {
+    if (!producto) return;
     let precioFinal: number;
 
     if (usarPrecioManual) {
       if (!validarPrecioManual()) return;
       precioFinal = precioManual;
     } else {
-      precioFinal = producto[tipoPrecio] || 0;
+      precioFinal =
+        (producto[tipoPrecio as "precioa" | "preciop" | "precioo"] as number) ||
+        0;
     }
 
     const carritoActual = JSON.parse(
@@ -128,6 +147,8 @@
 <svelte:window on:keydown={handleKeydown} />
 
 {#if showModal && producto}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div
     class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[100] flex items-center justify-center p-2 sm:p-4"
     on:click={close}
@@ -192,6 +213,20 @@
               >{producto.modelo}</span
             >
           </div>
+          {#if QRcode}
+            <div
+              class="mt-4 mx-auto flex flex-col items-center p-2 bg-slate-50 rounded-xl w-max border border-slate-100"
+            >
+              <span class="text-[9px] font-black text-slate-400 uppercase mb-1"
+                >Escanear para ver más</span
+              >
+              <img
+                src={QRcode}
+                alt="Código QR del producto"
+                class="w-auto h-auto rounded-md mix-blend-multiply"
+              />
+            </div>
+          {/if}
         </div>
 
         <div class="space-y-2">
@@ -374,6 +409,8 @@
   </div>
 
   {#if showImageFull}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
       class="fixed inset-0 bg-black/95 z-[200] flex items-center justify-center p-4 cursor-zoom-out"
       on:click={() => (showImageFull = false)}
@@ -386,6 +423,7 @@
         class="max-w-full max-h-full object-contain"
       />
       <button
+        aria-label="Cerrar vista completa"
         class="absolute top-4 right-4 sm:top-6 sm:right-6 text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors"
         on:click|stopPropagation={() => (showImageFull = false)}
       >

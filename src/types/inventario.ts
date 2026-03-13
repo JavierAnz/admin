@@ -28,7 +28,7 @@ export type ProductoBuscador = Pick<ProductoUniversal,
   | 'preciop' | 'precioa' | 'precioo'
   | 'numeroParte' | 'costo'
   | 'marca' | 'modelo' | 'barras'
-  | 'ultimaCompra' | 'origen'
+  | 'ultimaCompra' | 'origen' | 'direccionWeb'
 >;
 
 /** Elemento del carrito / cotización */
