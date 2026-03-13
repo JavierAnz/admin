@@ -18,7 +18,7 @@ export const GET: APIRoute = async ({ params }) => {
         FROM rel_productos_agencias R
         INNER JOIN agencias A ON R.cod_agen = A.cod_agen
         WHERE LTRIM(RTRIM(R.cod_prod)) = LTRIM(RTRIM(@cod_prod)) -- Limpieza rigurosa de espacios
-        AND (A.ES_SALA_VENTAS = 1 OR A.RECIBE_COMPRAS = 1)
+        AND (A.ES_SALA_VENTAS = 1 OR A.RECIBE_COMPRAS = 1 or a.ES_BODEGA_TRANSITO = 1)
         AND R.existencia > 0 
         ORDER BY R.existencia DESC
       `);
