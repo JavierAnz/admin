@@ -164,13 +164,18 @@
       tabindex="-1"
       style="transform: scale({$scale})"
     >
-      <button
-        on:click={close}
-        class="absolute top-3 right-3 sm:top-4 sm:right-4 w-8 h-8 sm:w-10 sm:h-10 bg-slate-100 rounded-full font-bold text-slate-500 z-50 text-sm sm:text-base"
-        >✕</button
-      >
+      <!-- Header fijo con botón de cerrar -->
+      <div class="sticky top-0 z-50 flex justify-end p-2 sm:p-3 bg-white">
+        <button
+          on:click={close}
+          class="w-8 h-8 sm:w-10 sm:h-10 bg-slate-100 hover:bg-slate-200 rounded-full font-bold text-slate-500 text-sm sm:text-base transition-colors flex items-center justify-center"
+          >✕</button
+        >
+      </div>
 
-      <div class="overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div
+        class="overflow-y-auto px-4 pb-4 sm:px-6 sm:pb-6 space-y-4 sm:space-y-6"
+      >
         <!-- Imagen grande con prioridad -->
         <button
           class="w-full h-64 sm:h-80 bg-slate-50 rounded-2xl flex items-center justify-center p-1 sm:p-2 cursor-zoom-in hover:bg-slate-100 transition-colors"
