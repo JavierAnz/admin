@@ -1,30 +1,48 @@
-import { defineMiddleware } from "astro:middleware";
-import { PERMS } from "./brand/brand";
+import { defineMiddleware } from 'astro:middleware';
+import { PERMS } from './brand/brand';
 
-// Corre en Vercel Edge Runtime: sin cold-starts, 1M invocaciones gratis/mes por separado
 export const config = { runtime: 'edge' };
 
+const PUBLIC = ['/login', '/api/auth', '/api/agencias'];
+const SESSION = ['/inventario', '/api/productos', '/api/existencias', '/api/producto-imagen'];
+const ADMIN_PREFIXES = ['/api/admin', '/api/marcas'];
+const REPORTS = ['/admin/reportes'];
+
+function matchesRoute(pathname: string, routes: string[]) {
+    return routes.some((route) => pathname.startsWith(route));
+}
+
+function isAdminPage(pathname: string) {
+    return pathname.startsWith('/admin') && !pathname.startsWith('/admin/reportes');
+}
+
+function hasPermission(permissions: number[] | undefined, perm: number) {
+    return permissions?.includes(perm) ?? false;
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
-    const { url, cookies, redirect, locals } = context;
-    const sesionRaw = cookies.get("ofit_session")?.value;
+    const { url, cookies, redirect, locals, request } = context;
+    const pathname = url.pathname;
+    const isApiRoute = pathname.startsWith('/api/');
 
-    const esPublico =
-        url.pathname === "/login" ||
-        url.pathname.startsWith("/api/agencias") ||
-        url.pathname.startsWith("/api/auth");
+    const sendUnauthorized = () =>
+        isApiRoute
+            ? new Response(JSON.stringify({ error: 'no-auth' }), {
+                  status: 401,
+                  headers: { 'Content-Type': 'application/json' },
+              })
+            : redirect('/login?error=no-auth');
 
-    const esPrivado =
-        url.pathname.startsWith("/inventario") ||
-        url.pathname.startsWith("/api/productos");
+    const sendForbidden = () =>
+        isApiRoute
+            ? new Response(JSON.stringify({ error: 'forbidden' }), {
+                  status: 403,
+                  headers: { 'Content-Type': 'application/json' },
+              })
+            : redirect('/inventario?error=no-admin');
 
-    const esReportes =
-        url.pathname.startsWith("/admin/reportes");
-
-    const esAdmin =
-        (url.pathname.startsWith("/admin") && !esReportes) ||
-        url.pathname.startsWith("/api/admin");
-
-    // 1. Hidratar locals.user desde la cookie de sesión
+    // 1. Hidratar locals.user desde cookie de sesión
+    const sesionRaw = cookies.get('ofit_session')?.value;
     if (sesionRaw) {
         try {
             const userData = JSON.parse(sesionRaw);
@@ -32,32 +50,47 @@ export const onRequest = defineMiddleware(async (context, next) => {
                 id: userData.id,
                 nick: userData.nick,
                 permissions: userData.permissions || [],
-                agenciaId: cookies.get("agencia_id")?.value,
+                agenciaId: cookies.get('agencia_id')?.value,
+                agenciaNombre: cookies.get('agencia_nombre')?.value,
             };
         } catch (e) {
-            console.error("Error al parsear sesión:", e);
-            cookies.delete("ofit_session", { path: "/" });
+            console.error('Error al parsear sesión:', e);
+            cookies.delete('ofit_session', { path: '/' });
         }
     }
 
-    // 2. Rutas protegidas requieren sesión
-    if ((esPrivado || esAdmin || esReportes) && !locals.user) {
-        return redirect("/login?error=no-auth");
+    const isMarcaImagenPut = pathname.startsWith('/api/marca-imagen') && request.method === 'PUT';
+    const isMarcaImagenGet = pathname.startsWith('/api/marca-imagen') && request.method === 'GET';
+
+    // 2. Rutas públicas
+    if (matchesRoute(pathname, PUBLIC)) {
+        if (pathname === '/login' && locals.user) {
+            return redirect('/inventario');
+        }
+        return next();
     }
 
-    // 3. Rutas /admin (panel de administración) requieren permiso ADMIN_PANEL
-    if (esAdmin && !locals.user?.permissions.includes(PERMS.ADMIN_PANEL)) {
-        return redirect("/inventario?error=no-admin");
+    // 3. Reportes (antes que admin — /admin/reportes comparte prefijo /admin)
+    if (matchesRoute(pathname, REPORTS)) {
+        if (!locals.user) return sendUnauthorized();
+        if (!hasPermission(locals.user.permissions, PERMS.VIEW_REPORTS)) return sendForbidden();
+        return next();
     }
 
-    // 4. Ruta /admin/reportes requiere permiso VIEW_REPORTS
-    if (esReportes && !locals.user?.permissions.includes(PERMS.VIEW_REPORTS)) {
-        return redirect("/inventario?error=no-admin");
+    // 4. Rutas admin
+    const isAdminRoute =
+        isAdminPage(pathname) || matchesRoute(pathname, ADMIN_PREFIXES) || isMarcaImagenPut;
+
+    if (isAdminRoute) {
+        if (!locals.user) return sendUnauthorized();
+        if (!hasPermission(locals.user.permissions, PERMS.ADMIN_PANEL)) return sendForbidden();
+        return next();
     }
 
-    // 5. Redirigir usuario ya autenticado fuera del login
-    if (url.pathname === "/login" && locals.user) {
-        return redirect("/inventario");
+    // 5. Rutas con sesión básica
+    if (matchesRoute(pathname, SESSION) || isMarcaImagenGet) {
+        if (!locals.user) return sendUnauthorized();
+        return next();
     }
 
     return next();

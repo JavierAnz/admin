@@ -1,6 +1,15 @@
 <script lang="ts">
+    import { fetchSecure } from "../utils/api";
+
     // AdminPanel.svelte - Panel de administración de marcas y productos
     let activeTab = $state<"marcas" | "productos">("marcas");
+
+    function apiErrorMessage(error: unknown): string {
+        if (error instanceof Error && error.message === "forbidden") {
+            return "No tienes permisos para esta acción.";
+        }
+        return "Error de conexión.";
+    }
 
     // State for brands
     let marcas = $state<Array<{ id: number; nombre: string }>>([]);
@@ -49,11 +58,12 @@
         loadingMarcas = true;
         errorMarcas = "";
         try {
-            const res = await fetch("/api/marcas");
-            if (!res.ok) throw new Error("Error cargando marcas");
-            marcas = await res.json();
+            const data = await fetchSecure<Array<{ id: number; nombre: string }>>(
+                "/api/marcas",
+            );
+            if (data) marcas = data;
         } catch (e) {
-            errorMarcas = e instanceof Error ? e.message : "Error desconocido";
+            errorMarcas = apiErrorMessage(e);
         } finally {
             loadingMarcas = false;
         }
@@ -67,14 +77,17 @@
         loadingProductos = true;
         errorProductos = "";
         try {
-            const res = await fetch(
-                `/api/admin/productos?q=${encodeURIComponent(searchQuery)}`,
-            );
-            if (!res.ok) throw new Error("Error buscando productos");
-            productos = await res.json();
+            const data = await fetchSecure<
+                Array<{
+                    id: string;
+                    nombre: string;
+                    descripcion: string;
+                    modelo: string;
+                }>
+            >(`/api/admin/productos?q=${encodeURIComponent(searchQuery)}`);
+            productos = data ?? [];
         } catch (e) {
-            errorProductos =
-                e instanceof Error ? e.message : "Error desconocido";
+            errorProductos = apiErrorMessage(e);
         } finally {
             loadingProductos = false;
         }
@@ -134,12 +147,11 @@
                     ? `/api/marca-imagen/${id}`
                     : `/api/admin/producto/${id}`;
 
-            const res = await fetch(endpoint, {
+            await fetchSecure<{ success: boolean }>(endpoint, {
                 method: "PUT",
                 body: formData,
             });
 
-            if (!res.ok) throw new Error("Error subiendo imagen");
             uploadSuccess = "¡Imagen actualizada correctamente!";
 
             // Actualizar versión de cache para forzar recarga de imágenes
@@ -174,8 +186,7 @@
                 lastModifiedId = null;
             }, 3000);
         } catch (e) {
-            uploadError =
-                e instanceof Error ? e.message : "Error al subir imagen";
+            uploadError = apiErrorMessage(e);
         } finally {
             uploading = false;
             input.value = "";
@@ -190,11 +201,10 @@
         uploadSuccess = "";
 
         try {
-            const res = await fetch(
+            await fetchSecure<{ success: boolean }>(
                 `/api/admin/producto/${selectedProducto.id}`,
                 {
                     method: "PUT",
-                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         nombre: editNombre,
                         descripcion: editDescripcion,
@@ -203,13 +213,10 @@
                 },
             );
 
-            if (!res.ok) throw new Error("Error guardando producto");
             uploadSuccess = "¡Producto actualizado correctamente!";
-
-            // Reload products
             await searchProductos();
         } catch (e) {
-            uploadError = e instanceof Error ? e.message : "Error al guardar";
+            uploadError = apiErrorMessage(e);
         } finally {
             uploading = false;
         }

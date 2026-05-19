@@ -1,10 +1,12 @@
-// src/pages/api/marca-imagen/[id].ts
 import type { APIRoute } from 'astro';
-import sql from 'mssql';
-import { getDbConnection } from '../../../lib/db';
-import sharp from 'sharp';
+import { getMarcaImagen, updateMarcaImagen } from '../../../server/queries';
+import {
+    createSvgPlaceholder,
+    processImage,
+    processImageUpload,
+    resolveImageSize,
+} from '../../../server/images';
 
-// ── Vercel Blob (caché de imágenes procesadas) ───────────────────────────────
 let blobModule: typeof import('@vercel/blob') | null = null;
 
 function getBlobToken() {
@@ -21,27 +23,14 @@ async function getBlob() {
     return blobModule;
 }
 
-// Sharp configuration
-const sharpConfig = {
-    failOnError: false,
-    sequentialRead: true,
-    limitInputPixels: 268402689
-};
+function getPredictableBlobUrl(blobKey: string): string | null {
+    const token = getBlobToken();
+    if (!token) return null;
+    const parts = token.split('_');
+    if (parts.length < 4) return null;
+    return `https://${parts[3]}.public.blob.vercel-storage.com/${blobKey}`;
+}
 
-const SIZES = {
-    thumb: { width: 150, height: 150 },
-    small: { width: 300, height: 300 },
-    medium: { width: 600, height: 600 },
-    large: { width: 1200, height: 1200 }
-} as const;
-
-const resizeOptions = {
-    fit: 'inside' as const,
-    withoutEnlargement: true,
-    kernel: 'lanczos3' as const
-};
-
-// GET: Retrieve brand image
 export const GET: APIRoute = async ({ params, request }) => {
     const id = params.id;
     const url = new URL(request.url);
@@ -51,98 +40,43 @@ export const GET: APIRoute = async ({ params, request }) => {
     }
 
     const sizeParam = url.searchParams.get('size') || 'medium';
-    const size = SIZES[sizeParam as keyof typeof SIZES] || SIZES.medium;
-
-    // ── Clave de Blob (con extensión para Standard CDN) ────────────────────
+    const size = resolveImageSize(sizeParam);
     const blobKey = `img-marca-${id}-${sizeParam}.webp`;
-
-    // ── Generar URL Predecible para evitar Operaciones Avanzadas (list) ───
-    let predictableUrl: string | null = null;
-    const token = getBlobToken();
-    if (token) {
-        const parts = token.split('_');
-        if (parts.length >= 4) {
-            predictableUrl = `https://${parts[3]}.public.blob.vercel-storage.com/${blobKey}`;
-        }
-    }
+    const predictableUrl = getPredictableBlobUrl(blobKey);
 
     try {
-        // ── 1. Intentar HEAD request al CDN (Standard Operation, muy rápida) ──
         if (predictableUrl) {
             try {
                 const cacheRes = await fetch(predictableUrl, { method: 'HEAD' });
                 if (cacheRes.ok) {
-                    console.log(`[MARCA BLOB HIT (CDN)] ${blobKey}`);
-                    // ¡Cache Hit! Redirigir al cliente para que no consuma RAM del Serverless
                     return Response.redirect(predictableUrl, 302);
                 }
             } catch (err) {
-                console.warn(`[MARCA CDN CACHE CHECK ERR]`, err);
+                console.warn('[MARCA CDN CACHE CHECK ERR]', err);
             }
         }
 
-        // ── 2. Cache miss → leer de DB ────────────────────────────────────
-        const pool = await getDbConnection();
-
-        const result = await pool.request()
-            .input('id', sql.Int, parseInt(id))
-            .query(`
-        SELECT IMAGEN, DATALENGTH(IMAGEN) as PesoOriginal
-        FROM CAT_MARCA WITH (NOLOCK)
-        WHERE ID_MARCA = @id AND IMAGEN IS NOT NULL AND DATALENGTH(IMAGEN) > 100
-      `);
-
-        const record = result.recordset[0];
+        const record = await getMarcaImagen(parseInt(id));
 
         if (!record?.IMAGEN) {
-            // Return placeholder
-            const placeholder = await sharp({
-                create: {
-                    width: size.width,
-                    height: size.height,
-                    channels: 4,
-                    background: { r: 248, g: 250, b: 252, alpha: 1 }
-                }
-            })
-                .composite([{
-                    input: Buffer.from(
-                        `<svg width="${size.width}" height="${size.height}">
-              <rect width="${size.width}" height="${size.height}" fill="#f1f5f9"/>
-              <text x="50%" y="50%" text-anchor="middle" font-size="14" fill="#94a3b8">Sin imagen</text>
-            </svg>`
-                    ),
-                    top: 0,
-                    left: 0
-                }])
-                .webp({ quality: 80 })
-                .toBuffer();
-
+            const placeholder = await createSvgPlaceholder(size);
             return new Response(new Uint8Array(placeholder), {
                 headers: {
                     'Content-Type': 'image/webp',
                     'Cache-Control': 'public, max-age=3600, s-maxage=3600',
-                    'X-Image-Status': 'placeholder'
-                }
+                    'X-Image-Status': 'placeholder',
+                },
             });
         }
 
-        // ── 3. Procesar con Sharp ─────────────────────────────────────────
-        let pipeline = sharp(record.IMAGEN, sharpConfig)
-            .rotate()
-            .flatten({ background: '#ffffff' });
+        const { buffer: optimizedBuffer } = await processImage(record.IMAGEN, {
+            width: size.width,
+            height: size.height,
+            format: 'webp',
+            quality: 82,
+            kernel: 'lanczos3',
+        });
 
-        const metadata = await pipeline.metadata();
-        if (metadata.width && metadata.height) {
-            if (metadata.width > size.width || metadata.height > size.height) {
-                pipeline = pipeline.resize({ width: size.width, height: size.height, ...resizeOptions });
-            }
-        } else {
-            pipeline = pipeline.resize({ width: size.width, height: size.height, ...resizeOptions });
-        }
-
-        const optimizedBuffer = await pipeline.webp({ quality: 82, effort: 5 }).toBuffer();
-
-        // ── 4. Guardar en Blob ─────────────────────────
         const blob = await getBlob();
         if (blob) {
             try {
@@ -151,8 +85,7 @@ export const GET: APIRoute = async ({ params, request }) => {
                     contentType: 'image/webp',
                     addRandomSuffix: false,
                 });
-            } catch (e) {
-                // Ignore Blob Limit errors so the API doesn't 500 when Quota is reached
+            } catch {
                 console.warn(`[MARCA BLOB QUOTA LIMIT] Ignored Put for ${blobKey}`);
             }
         }
@@ -163,24 +96,22 @@ export const GET: APIRoute = async ({ params, request }) => {
                 'Content-Length': optimizedBuffer.length.toString(),
                 'Cache-Control': 'public, max-age=31536000, immutable',
                 'CDN-Cache-Control': 'public, s-maxage=31536000, stale-while-revalidate=86400',
-                'X-Image-Status': 'optimized'
-            }
+                'X-Image-Status': 'optimized',
+            },
         });
-
     } catch (error) {
         console.error(`[MARCA IMG ERROR] ${id}:`, error);
         return new Response(null, { status: 500 });
     }
 };
 
-// PUT: Update brand image
 export const PUT: APIRoute = async ({ params, request }) => {
     const id = params.id;
 
     if (!id || !/^\d{1,10}$/.test(id)) {
         return new Response(JSON.stringify({ error: 'ID inválido' }), {
             status: 400,
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
         });
     }
 
@@ -191,36 +122,23 @@ export const PUT: APIRoute = async ({ params, request }) => {
         if (!file || !file.type.startsWith('image/')) {
             return new Response(JSON.stringify({ error: 'Imagen no válida' }), {
                 status: 400,
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
             });
         }
 
-        // Process image with Sharp before saving
         const arrayBuffer = await file.arrayBuffer();
-        const processedBuffer = await sharp(Buffer.from(arrayBuffer), sharpConfig)
-            .rotate() // Auto-rotate based on EXIF
-            .resize({ width: 800, height: 800, fit: 'inside', withoutEnlargement: true })
-            .flatten({ background: '#ffffff' }) // Replace transparency with white background
-            .jpeg({ quality: 85, progressive: true })
-            .toBuffer();
-
-        const pool = await getDbConnection();
-
-        await pool.request()
-            .input('imagen', sql.VarBinary(sql.MAX), processedBuffer)
-            .input('id', sql.Int, parseInt(id))
-            .query('UPDATE CAT_MARCA SET IMAGEN = @imagen WHERE ID_MARCA = @id');
+        const processedBuffer = await processImageUpload(Buffer.from(arrayBuffer), 800, 800);
+        await updateMarcaImagen(parseInt(id), processedBuffer);
 
         return new Response(JSON.stringify({ success: true }), {
             status: 200,
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
         });
-
     } catch (error) {
         console.error(`[MARCA IMG UPDATE ERROR] ${id}:`, error);
         return new Response(JSON.stringify({ error: 'Error al actualizar imagen' }), {
             status: 500,
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
         });
     }
 };

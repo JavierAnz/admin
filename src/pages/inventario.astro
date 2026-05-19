@@ -1,12 +1,11 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import AdminNavbar from "../components/AdminNavbar.astro";
-import Buscador from "../components/Buscador.svelte";
+import Buscador from "../components/inventario/Buscador.svelte";
 import SpeedInsights from "@vercel/speed-insights/astro";
-import { getNombreAgencia } from "../lib/agenciaService";
 
-const agenciaId = Astro.cookies.get("agencia_id")?.value;
-const nombreAgencia = await getNombreAgencia(agenciaId ?? "");
+const agenciaId = Astro.locals.user?.agenciaId ?? Astro.cookies.get("agencia_id")?.value;
+const nombreAgencia = Astro.locals.user?.agenciaNombre ?? "";
 ---
 
 <Layout title="Inventario | OFIT">

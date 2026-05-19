@@ -6,6 +6,7 @@ import "../styles/global.css";
 if (Astro.url.searchParams.has("logout")) {
 	Astro.cookies.delete("ofit_session", { path: "/" });
 	Astro.cookies.delete("agencia_id", { path: "/" });
+	Astro.cookies.delete("agencia_nombre", { path: "/" });
 	return Astro.redirect("/login");
 }
 
@@ -24,6 +25,8 @@ const { colors, logoPath, faviconPath } = BRAND_CONFIG;
 		<link rel="icon" type="image/png" href={faviconPath} />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
 		<Analytics />
 		<!-- Inyección de paleta de marca como CSS custom properties.
 		     Cambiar brand.ts.colors cambia TODA la UI automáticamente. -->
@@ -45,17 +48,17 @@ const { colors, logoPath, faviconPath } = BRAND_CONFIG;
 			}
 		</style>
 	</head>
-	<!-- Google tag (gtag.js) -->
-	<script async src="https://www.googletagmanager.com/gtag/js?id=G-7SG8CG8C3E"
-	></script>
+	<!-- Google tag (gtag.js) — diferido hasta después del load para no competir con FCP -->
+	<script defer src="https://www.googletagmanager.com/gtag/js?id=G-7SG8CG8C3E"></script>
 	<script is:inline>
-		window.dataLayer = window.dataLayer || [];
-		function gtag() {
-			dataLayer.push(arguments);
-		}
-		gtag("js", new Date());
-
-		gtag("config", "G-7SG8CG8C3E");
+		window.addEventListener("load", function () {
+			window.dataLayer = window.dataLayer || [];
+			function gtag() {
+				dataLayer.push(arguments);
+			}
+			gtag("js", new Date());
+			gtag("config", "G-7SG8CG8C3E");
+		});
 	</script>
 	<body>
 		<slot />

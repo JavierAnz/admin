@@ -4,6 +4,15 @@ Sistema web tipo **white-label** para consulta de inventario, cotización de pro
 
 ---
 
+## Arquitectura y Reglas del Proyecto
+
+- **Marca y UI Centralizada:** `src/brand/brand.ts` es la única fuente de verdad. Prohibido hardcodear colores, textos de negocio o clases de Tailwind literales (ej. `text-red-500`) en los componentes. Los componentes consumen las variables de CSS inyectadas.
+- **Rutas API y Seguridad:** Las peticiones a `/api/*` devuelven respuestas HTTP JSON. La seguridad perimetral (401/403) se gestiona exclusivamente a nivel de Edge en `src/middleware.ts`.
+- **Consumo de API:** El cliente Svelte **nunca** usa `fetch` directamente. Todas las peticiones deben pasar por `src/utils/api.ts` (`fetchSecure`) para garantizar la intercepción de sesiones expiradas.
+- **Capa de Datos:** Toda consulta a SQL Server o procesamiento de Sharp vive estrictamente dentro de `src/server/`. Los endpoints en `src/pages/api/` funcionan como controladores delgados.
+
+---
+
 ## Stack Tecnológico
 
 | Capa | Tecnología |
@@ -30,20 +39,21 @@ src/
 │   └── ProductoDetalleModal.svelte ← Modal de detalle del producto
 ├── layouts/
 │   └── Layout.astro          ← Layout base (inyecta CSS vars de marca)
-├── lib/
+├── server/                   ← Capa lógica y de datos (plana)
 │   ├── db.ts                 ← Pool de conexión SQL Server (singleton)
-│   ├── sql.ts                ← Query de búsqueda local (buscarLocal)
-│   ├── inventoryService.ts   ← Orquestador: SQL + proveedores externos
-│   ├── agenciaService.ts     ← Query de nombre de agencia
-│   ├── rateLimiter.ts        ← Rate limiting in-process (30 req/min)
-│   └── providers/
-│       └── intcomex.ts       ← Proveedor externo de productos
+│   ├── queries.ts            ← SQL: búsqueda, existencias, marcas, agencias
+│   ├── inventory.ts          ← Orquestador: SQL + proveedores externos
+│   ├── images.ts             ← Sharp unificado
+│   ├── intcomex.ts           ← Proveedor externo de productos
+│   └── auth.ts               ← Rate limiting in-process (30 req/min)
+├── utils/
+│   └── api.ts                ← fetchSecure (cliente Svelte)
 ├── pages/
-│   ├── index.astro           ← Redirect a /inventario
+│   ├── index.astro           ← Redirect a /login
 │   ├── login.astro           ← Pantalla de acceso
 │   ├── inventario.astro      ← Vista principal del buscador
-│   ├── admin.astro           ← Panel de administración
 │   ├── admin/
+│   │   ├── index.astro       ← Panel de administración (/admin)
 │   │   └── reportes.astro    ← Reporte Power BI embebido
 │   └── api/
 │       ├── auth/
@@ -167,7 +177,7 @@ Usuario escribe → Buscador.svelte (debounce 300ms)
 ```
 
 **Para agregar un nuevo proveedor externo:**
-1. Crea `src/lib/providers/nuevo-proveedor.ts` con una función que retorne `ProductoUniversal[]`
+1. Crea `src/server/nuevo-proveedor.ts` (o similar) con una función que retorne `ProductoUniversal[]`
 2. Agrégala al `Promise.all()` en `inventoryService.ts`
 
 ---
@@ -186,7 +196,7 @@ instanceName=NOMBRE_INSTANCIA   # opcional, si es named instance
 POWERBI_EMBED_URL=https://...   # opcional
 ```
 
-**El pool de conexión** (`lib/db.ts`) es un **singleton** — se crea una vez y se reutiliza en todas las requests. No se crea una nueva conexión por request.
+**El pool de conexión** (`server/db.ts`) es un **singleton** — se crea una vez y se reutiliza en todas las requests. No se crea una nueva conexión por request.
 
 **Tablas utilizadas:**
 
@@ -246,15 +256,15 @@ pnpm exec tsc --noEmit
 | Agregar un nuevo permiso | `src/brand/brand.ts` → `permissions` + `src/middleware.ts` |
 | Agregar un link en el navbar | `src/components/AdminNavbar.astro` |
 | Agregar una nueva página de admin | `src/pages/admin/nueva-pagina.astro` |
-| Modificar la búsqueda SQL | `src/lib/sql.ts` → `buscarLocal()` |
-| Agregar un proveedor externo de productos | `src/lib/providers/` + `src/lib/inventoryService.ts` |
+| Modificar la búsqueda SQL | `src/server/queries.ts` → `buscarLocal()` |
+| Agregar un proveedor externo de productos | `src/server/` + `src/server/inventory.ts` |
 | Cambiar textos del buscador o login | `src/brand/brand.ts` → `copy` |
 | Modificar la pantalla de login | `src/pages/login.astro` |
 | Cambiar el reporte Power BI | `src/brand/brand.ts` → `powerBiEmbedUrl` |
 | Agregar un campo al usuario de sesión | `src/env.d.ts` + `src/pages/api/auth/login.ts` |
-| Ajustar el rate limit de búsquedas | `src/lib/rateLimiter.ts` o `src/pages/api/productos/search.ts` |
+| Ajustar el rate limit de búsquedas | `src/server/auth.ts` o `src/pages/api/productos/search.ts` |
 | Agregar un nuevo tipo de dato | `src/types/inventario.ts` |
-| Cambiar la BD o las queries de agencia | `src/lib/agenciaService.ts` |
+| Cambiar la BD o las queries de agencia | `src/server/queries.ts` |
 
 ---
 
@@ -264,7 +274,8 @@ pnpm exec tsc --noEmit
 Browser → Vercel Edge
     └── middleware.ts          (auth guard, hidrata locals.user)
         └── página .astro      (frontmatter server-side)
-            ├── lib/           (servicios y queries)
+            ├── server/        (servicios y queries)
+            ├── utils/         (fetchSecure cliente)
             │   └── db.ts      (pool SQL Server singleton)
             └── HTML → Browser
                 └── componente Svelte (client:load)

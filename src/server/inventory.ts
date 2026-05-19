@@ -1,0 +1,51 @@
+import { buscarLocal } from './queries';
+import { getIntcomexData } from './intcomex';
+import type { ProductoUniversal } from '../types/inventario';
+import { PERMS } from '../brand/brand';
+
+export async function getAllInventory(
+    query: string = '',
+    agencia: string = '',
+    soloLocal: boolean = false,
+    userPerms: number[] = []
+): Promise<ProductoUniversal[]> {
+    try {
+        const [propioRaw, externoRaw] = await Promise.all([
+            buscarLocal(query, agencia, soloLocal, userPerms),
+            soloLocal ? Promise.resolve([]) : getIntcomexData(query).catch(() => []),
+        ]);
+
+        const propio: ProductoUniversal[] = propioRaw.map((p) => {
+            const prod: ProductoUniversal = {
+                id: (p.id || '').toString(),
+                nombre: p.nombre,
+                existencia: p.Total || 0,
+                preciop: p.precioP || 0,
+                precioa: p.precioA || 0,
+                precioo: p.precioo || 0,
+                numeroParte: p.numeroParte,
+                vigencia: p.vigencia,
+                marca: p.marca,
+                modelo: p.modelo,
+                direccionWeb: p.direccionWeb || p.DIRECCION_WEB || '',
+                barras: p.barras,
+                origen: 'PROPIO',
+                proveedorNombre: 'OFIT',
+                entregaInmediata: true,
+                depto: p.depto,
+                ultimaCompra: p.ultimaCompra,
+            };
+
+            if (userPerms.includes(PERMS.VIEW_COSTS)) {
+                prod.costo = p.costo || 0;
+            }
+
+            return prod;
+        });
+
+        return [...propio, ...externoRaw];
+    } catch (error) {
+        console.error('Error en inventoryService:', error);
+        return [];
+    }
+}

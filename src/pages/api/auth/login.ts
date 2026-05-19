@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
-import { getDbConnection } from '../../../lib/db';
+import { getDbConnection } from '../../../server/db';
+import { getNombreAgencia } from '../../../server/queries';
 import md5 from 'md5';
 import sql from 'mssql';
 
@@ -64,6 +65,12 @@ export const POST: APIRoute = async ({ request, cookies, redirect }) => {
         });
 
         cookies.set("agencia_id", agencia, { path: "/", maxAge: 60 * 60 * 12 });
+
+        const nombreAgencia = await getNombreAgencia(agencia);
+        cookies.set("agencia_nombre", nombreAgencia, {
+            path: "/",
+            maxAge: 60 * 60 * 12,
+        });
 
         return redirect('/inventario');
 

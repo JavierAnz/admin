@@ -34,5 +34,5 @@
 /* ─── Optimización de Renderizado Fuera de Pantalla ── */
 .product-card {
   content-visibility: auto;
-  contain-intrinsic-size: auto 88px;
+  contain-intrinsic-size: 0 400px;
 }

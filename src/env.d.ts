@@ -7,6 +7,7 @@ declare namespace App {
             /** Array de ID_OPCION de SEG_PERMISO. Toda la autorización pasa por aquí. */
             permissions: number[];
             agenciaId?: string;
+            agenciaNombre?: string;
         };
     }
 }
